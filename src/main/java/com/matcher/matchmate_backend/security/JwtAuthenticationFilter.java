@@ -1,6 +1,7 @@
 package com.matcher.matchmate_backend.security;
 
 import com.matcher.matchmate_backend.model.entity.AppUser;
+import com.matcher.matchmate_backend.model.enums.auth.AccountStatus;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -14,6 +15,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 @Component
@@ -52,30 +54,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
                 if (!Boolean.TRUE.equals(user.getIsActive())) {
-                    // Stateless JWTs: the active flag is the revocation list. A disabled (paused)
-                    // account gets a distinct code so the client can explain it was the user's choice.
-                    boolean disabled = user.getAccountStatus() == com.matcher.matchmate_backend.model.enums.auth.AccountStatus.DISABLED;
+                    // Stateless JWTs: the active flag is the revocation list. One narrow
+                    // carve-out: a PENDING_DELETION user whose grace window hasn't lapsed is
+                    // still let through for the one call that can undo it, so the confirm screen
+                    // can actually cancel the deletion while every other route stays blocked.
+                    boolean isCancelDeletionCall = "POST".equalsIgnoreCase(request.getMethod())
+                            && "/api/v1/users/me/cancel-deletion".equals(request.getRequestURI());
+                    boolean purgeWindowStillOpen = user.getAccountStatus() == AccountStatus.PENDING_DELETION
+                            && user.getScheduledPurgeAt() != null
+                            && user.getScheduledPurgeAt().isAfter(OffsetDateTime.now());
+
+                    if (isCancelDeletionCall && purgeWindowStillOpen) {
+                        setAuthentication(request, userId, firebaseUid);
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json");
-                    response.getWriter().write(disabled
-                            ? "{\"error\":\"ACCOUNT_DISABLED\",\"message\":\"Your account is disabled. Sign in again to re-activate it.\"}"
-                            : "{\"error\":\"ACCOUNT_DEACTIVATED\",\"message\":\"Your account has been deactivated.\"}");
+                    String body = switch (user.getAccountStatus()) {
+                        case DISABLED -> "{\"error\":\"ACCOUNT_DISABLED\",\"message\":\"Your account is disabled. Sign in again to re-activate it.\"}";
+                        case PENDING_DELETION -> "{\"error\":\"ACCOUNT_PENDING_DELETION\",\"message\":\"Your account is scheduled for deletion.\"}";
+                        default -> "{\"error\":\"ACCOUNT_DEACTIVATED\",\"message\":\"Your account has been deactivated.\"}";
+                    };
+                    response.getWriter().write(body);
                     return;
                 }
             }
 
-            AuthenticatedUserPrincipal principal = new AuthenticatedUserPrincipal(userId, firebaseUid);
-
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
-
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-            // Set user in Spring Security Context for this request thread
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            setAuthentication(request, userId, firebaseUid);
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void setAuthentication(HttpServletRequest request, Long userId, String firebaseUid) {
+        AuthenticatedUserPrincipal principal = new AuthenticatedUserPrincipal(userId, firebaseUid);
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
     private String extractJwtFromRequest(HttpServletRequest request){

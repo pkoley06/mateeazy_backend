@@ -38,6 +38,7 @@ public class AdminBrandingService {
         if (request.getDeveloperUpiId() != null) branding.setDeveloperUpiId(blankToNull(request.getDeveloperUpiId()));
         if (request.getDeveloperQrCodeUrl() != null) branding.setDeveloperQrCodeUrl(blankToNull(request.getDeveloperQrCodeUrl()));
         if (request.getDeveloperSupportNote() != null) branding.setDeveloperSupportNote(blankToNull(request.getDeveloperSupportNote()));
+        if (request.getDeletionGracePeriodDays() != null) branding.setDeletionGracePeriodDays(request.getDeletionGracePeriodDays());
 
         return toResponse(appBrandingRepository.save(branding));
     }
@@ -62,6 +63,7 @@ public class AdminBrandingService {
                     .maintenanceMode(false)
                     .developerUpiId("matchmate.dev@upi")
                     .developerSupportNote("Made with ❤️ for flatmates everywhere. If MatchMate helped you find a home, buy the developer a coffee!")
+                    .deletionGracePeriodDays(30)
                     .build();
             return appBrandingRepository.save(defaults);
         });
@@ -83,6 +85,7 @@ public class AdminBrandingService {
                 .developerUpiId(branding.getDeveloperUpiId())
                 .developerQrCodeUrl(branding.getDeveloperQrCodeUrl())
                 .developerSupportNote(branding.getDeveloperSupportNote())
+                .deletionGracePeriodDays(branding.getDeletionGracePeriodDays())
                 .updatedAt(branding.getUpdatedAt())
                 .build();
     }

@@ -71,6 +71,7 @@ public interface ListingRepository extends JpaRepository<Listing, Long> {
                     WHERE l.is_available = TRUE
                       AND u.onboarding_completed = TRUE
                       AND u.is_active = TRUE
+                      AND u.is_suspended = FALSE
                       AND l.host_user_id <> :currentUserId
                       AND ST_DWithin(l.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radiusMeters)
                       AND (:gender IS NULL OR u.gender = :gender)
@@ -110,6 +111,7 @@ public interface ListingRepository extends JpaRepository<Listing, Long> {
                     WHERE l.is_available = TRUE
                       AND u.onboarding_completed = TRUE
                       AND u.is_active = TRUE
+                      AND u.is_suspended = FALSE
                       AND l.host_user_id <> :currentUserId
                       AND ST_DWithin(l.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radiusMeters)
                       AND (:gender IS NULL OR u.gender = :gender)

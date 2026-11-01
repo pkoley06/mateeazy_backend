@@ -83,4 +83,17 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Settings → Account → pending-deletion confirm screen → "Keep my account". Only callable
+     * while the account is PENDING_DELETION - see JwtAuthenticationFilter for how such a user's
+     * token is still accepted for this one route while every other route stays blocked.
+     */
+    @PostMapping("/me/cancel-deletion")
+    public ResponseEntity<Void> cancelDeletion(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        userService.cancelDeletion(principal.getUserId());
+        return ResponseEntity.noContent().build();
+    }
+
 }

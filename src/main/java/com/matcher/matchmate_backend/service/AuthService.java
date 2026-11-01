@@ -62,8 +62,16 @@ public class AuthService {
                 .findByFirebaseUid(firebaseUid)
                 .orElseGet(() -> autoProvisionUser(firebaseUid, tokenVerifyRequest, name, picture));
 
-        // A self-disabled account comes back the moment its owner signs in again. Deleted
-        // accounts stay inactive (the JWT filter keeps rejecting their requests).
+        // Suspended accounts never get this far - a clear reason at sign-in time, rather than a
+        // token that then silently fails on the very next API call.
+        if (Boolean.TRUE.equals(user.getIsSuspended())) {
+            String reason = user.getSuspendedReason() != null
+                    ? user.getSuspendedReason()
+                    : "Your account has been suspended by the administration. Contact support for help.";
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, reason);
+        }
+
+        // A self-disabled account comes back the moment its owner signs in again.
         if (user.getAccountStatus() == AccountStatus.DISABLED) {
             log.info("Re-activating disabled account {}", user.getId());
             user.setAccountStatus(AccountStatus.ACTIVE);
@@ -72,11 +80,17 @@ public class AuthService {
             user = userRepository.save(user);
         }
 
+        // PENDING_DELETION is deliberately NOT auto-cancelled or auto-activated here. The account
+        // stays isActive=false; JwtAuthenticationFilter blocks every route except
+        // /users/me/cancel-deletion. The client is told via pendingDeletion/scheduledPurgeAt below
+        // and shows a confirm screen instead of silently letting the user back in.
+
         // Generate custom MatchMate session JWT
         String accessToken = jwtTokenProvider.generateToken(user.getId(), user.getFirebaseUid());
 
        // use the real flag, NOT "gender/DOB are not null" (placeholders make that always true)
         boolean isProfileComplete = Boolean.TRUE.equals(user.getOnboardingCompleted());
+        boolean pendingDeletion = user.getAccountStatus() == AccountStatus.PENDING_DELETION;
 
         return AuthTokenResponse.builder()
                 .accessToken(accessToken)
@@ -84,6 +98,8 @@ public class AuthService {
                 .expiresIn(jwtTokenProvider.getExpirationMs() / 1000)
                 .userId(user.getId())
                 .isProfileComplete(isProfileComplete)
+                .pendingDeletion(pendingDeletion)
+                .scheduledPurgeAt(pendingDeletion ? user.getScheduledPurgeAt() : null)
                 .preFilledUserData(PreFilledUserData.builder()
                         .fullName(user.getFullName())
                         .avatarUrl(user.getAvatarUrl())

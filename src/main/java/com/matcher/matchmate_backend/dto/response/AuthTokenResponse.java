@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.OffsetDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -16,5 +18,7 @@ public class AuthTokenResponse {
     private Long expiresIn;
     private Long userId;
     private Boolean isProfileComplete;
+    private Boolean pendingDeletion;
+    private OffsetDateTime scheduledPurgeAt;
     private PreFilledUserData preFilledUserData;
 }

@@ -45,4 +45,8 @@ public class AdminBrandingUpdateRequest {
     private String developerQrCodeUrl;
 
     private String developerSupportNote;
+
+    @jakarta.validation.constraints.Min(value = 1, message = "Grace period must be at least 1 day")
+    @jakarta.validation.constraints.Max(value = 365, message = "Grace period cannot exceed 365 days")
+    private Integer deletionGracePeriodDays;
 }

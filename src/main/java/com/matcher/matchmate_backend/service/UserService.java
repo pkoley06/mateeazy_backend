@@ -7,9 +7,11 @@ import com.matcher.matchmate_backend.dto.response.ListingResponse;
 import com.matcher.matchmate_backend.dto.response.OtherUserProfileResponse;
 import com.matcher.matchmate_backend.dto.response.UserDemographicsResponse;
 import com.matcher.matchmate_backend.dto.response.UserProfileResponse;
+import com.matcher.matchmate_backend.model.entity.AppBranding;
 import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.Listing;
 import com.matcher.matchmate_backend.model.enums.auth.AccountStatus;
+import com.matcher.matchmate_backend.repository.AppBrandingRepository;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
 import com.matcher.matchmate_backend.storage.StorageService;
@@ -40,19 +42,22 @@ public class UserService {
     private final ListingService listingService;
     private final NotificationService notificationService;
     private final StorageService storageService;
+    private final AppBrandingRepository appBrandingRepository;
 
     public UserService(
             AppUserRepository userRepository,
             ListingRepository listingRepository,
             ListingService listingService,
             NotificationService notificationService,
-            StorageService storageService
+            StorageService storageService,
+            AppBrandingRepository appBrandingRepository
     ) {
         this.userRepository = userRepository;
         this.listingRepository = listingRepository;
         this.listingService = listingService;
         this.notificationService = notificationService;
         this.storageService = storageService;
+        this.appBrandingRepository = appBrandingRepository;
     }
 
     /**
@@ -207,7 +212,8 @@ public class UserService {
     public void disableMyAccount(Long userId) {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        if (user.getAccountStatus() == AccountStatus.DELETED) {
+        if (user.getAccountStatus() == AccountStatus.DELETED
+                || user.getAccountStatus() == AccountStatus.PENDING_DELETION) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This account has already been deleted");
         }
         user.setIsActive(false);
@@ -217,18 +223,30 @@ public class UserService {
         userRepository.save(user);
     }
 
-    /** DELETE /api/v1/users/me — self account deletion. Deactivates user and delists all listings. */
+    /**
+     * DELETE /api/v1/users/me — starts the grace-period deletion flow. Delists listings
+     * immediately (so the user disappears from discovery right away) but defers scrubbing
+     * profile fields and destroying content until {@code AccountPurgeScheduler} runs after the
+     * grace period, so cancelling within the window restores a fully intact account.
+     */
     @Transactional
     public void deleteMyAccount(Long userId) {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (user.getAccountStatus() == AccountStatus.PENDING_DELETION) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account deletion is already pending");
+        }
 
+        int graceDays = appBrandingRepository.findById(1L)
+                .map(AppBranding::getDeletionGracePeriodDays)
+                .orElse(30);
+
+        OffsetDateTime now = OffsetDateTime.now();
         user.setIsActive(false);
-        user.setAccountStatus(AccountStatus.DELETED);
+        user.setAccountStatus(AccountStatus.PENDING_DELETION);
+        user.setDeletionRequestedAt(now);
+        user.setScheduledPurgeAt(now.plusDays(graceDays));
         user.setFcmToken(null);
-        user.setFullName("Deleted User");
-        user.setBio(null);
-        user.setAvatarUrl(null);
         userRepository.save(user);
 
         List<Listing> userListings = listingRepository.findByHostUserId(userId);
@@ -236,6 +254,30 @@ public class UserService {
             listing.setIsAvailable(false);
         }
         listingRepository.saveAll(userListings);
+    }
+
+    /**
+     * POST /api/v1/users/me/cancel-deletion — the one call {@code JwtAuthenticationFilter} lets
+     * a PENDING_DELETION user make. Valid only while still PENDING_DELETION and the grace period
+     * hasn't lapsed yet.
+     */
+    @Transactional
+    public void cancelDeletion(Long userId) {
+        AppUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (user.getAccountStatus() != AccountStatus.PENDING_DELETION) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "No pending deletion to cancel");
+        }
+        if (user.getScheduledPurgeAt() != null && user.getScheduledPurgeAt().isBefore(OffsetDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.GONE, "The grace period has already elapsed");
+        }
+        user.setAccountStatus(AccountStatus.ACTIVE);
+        user.setIsActive(true);
+        user.setDeletionRequestedAt(null);
+        user.setScheduledPurgeAt(null);
+        userRepository.save(user);
+        // Listings stay delisted (isAvailable=false) - re-listing is a deliberate separate user
+        // action via the normal listing-edit flow, not implicit on cancel.
     }
 
     private UserProfileResponse toProfileResponse(AppUser user) {

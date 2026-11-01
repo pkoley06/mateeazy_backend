@@ -99,6 +99,12 @@ public class AppUser {
     @Column(name = "disabled_at")
     private OffsetDateTime disabledAt;
 
+    @Column(name = "deletion_requested_at")
+    private OffsetDateTime deletionRequestedAt;
+
+    @Column(name = "scheduled_purge_at")
+    private OffsetDateTime scheduledPurgeAt;
+
     @Column(name = "onboarding_completed", nullable = false)
     @Builder.Default
     private Boolean onboardingCompleted = false;

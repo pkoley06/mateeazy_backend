@@ -2,6 +2,7 @@ package com.matcher.matchmate_backend.repository;
 
 import com.matcher.matchmate_backend.model.entity.ListingCommentLike;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -27,4 +28,9 @@ public interface ListingCommentLikeRepository
 
     @Query("SELECT l.commentId FROM ListingCommentLike l WHERE l.userId = :userId AND l.commentId IN :commentIds")
     Set<Long> findLikedCommentIds(@Param("userId") Long userId, @Param("commentIds") Collection<Long> commentIds);
+
+    /** AccountPurgeService: likes the user placed on OTHER users' comments (not reachable via any cascade). */
+    @Modifying
+    @Query("DELETE FROM ListingCommentLike l WHERE l.userId = :userId")
+    void deleteAllByUserId(@Param("userId") Long userId);
 }

@@ -4,6 +4,7 @@ import com.matcher.matchmate_backend.model.entity.ListingComment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -42,4 +43,9 @@ public interface ListingCommentRepository extends JpaRepository<ListingComment, 
             @Param("search") String search,
             @Param("listingId") Long listingId,
             Pageable pageable);
+
+    /** AccountPurgeService: comments the user left on OTHER users' listings (own-listing comments already cascade when the listing is deleted). */
+    @Modifying
+    @Query("DELETE FROM ListingComment c WHERE c.user.id = :userId")
+    void deleteAllByUserId(@Param("userId") Long userId);
 }

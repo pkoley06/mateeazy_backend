@@ -65,6 +65,11 @@ public class AppBranding {
     @Builder.Default
     private String developerSupportNote = "Made with ❤️ for flatmates everywhere. If MatchMate helped you find a home, buy the developer a coffee!";
 
+    /** Days a self-deleted account sits in PENDING_DELETION before AccountPurgeScheduler purges it. */
+    @Column(name = "deletion_grace_period_days", nullable = false)
+    @Builder.Default
+    private Integer deletionGracePeriodDays = 30;
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;

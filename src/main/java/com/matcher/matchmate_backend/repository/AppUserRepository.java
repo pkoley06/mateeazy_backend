@@ -1,6 +1,7 @@
 package com.matcher.matchmate_backend.repository;
 
 import com.matcher.matchmate_backend.model.entity.AppUser;
+import com.matcher.matchmate_backend.model.enums.auth.AccountStatus;
 import org.locationtech.jts.geom.Point;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -8,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,4 +45,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     long countByIsActiveTrue();
     long countByOnboardingCompletedTrue();
     List<AppUser> findTop5ByOrderByCreatedAtDesc();
+
+    /** AccountPurgeScheduler: rows whose grace period has lapsed. */
+    List<AppUser> findByAccountStatusAndScheduledPurgeAtBefore(AccountStatus accountStatus, OffsetDateTime cutoff);
 }
