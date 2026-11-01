@@ -655,3 +655,49 @@ Any S3-compatible service works the same way — just change `STORAGE_ENDPOINT`,
 `STORAGE_REGION`, `STORAGE_BUCKET`, the keys, and `STORAGE_PUBLIC_BASE_URL` to that provider's
 values (e.g. real AWS S3 can drop `STORAGE_ENDPOINT` entirely and use its normal bucket
 region/name). Nothing else changes.
+
+## Step J: 30-Day Grace-Period Account Deletion
+
+"Delete account" no longer purges data immediately — it schedules a purge after an
+admin-configurable grace period (default 30 days), during which signing in again shows a
+cancel-or-sign-out confirmation in the app instead of either silently letting the user back in
+or leaving them on a stuck dashboard.
+
+### 1. What ships automatically on deploy
+No manual step is required for a normal `git push` → CI deploy:
+- **Flyway migration `V13__add_pending_deletion.sql`** auto-applies on container boot
+  (`spring.flyway.enabled: true` in `application.yml`) — adds `deletion_requested_at` /
+  `scheduled_purge_at` to `app_users` and `deletion_grace_period_days` (default `30`) to
+  `app_branding`.
+- **`AccountPurgeScheduler`** (new — first scheduled job in this codebase, enabled via
+  `@EnableScheduling`) runs daily at **03:00 server time** inside the running container and
+  purges (resets-in-place, never hard-deletes) any account whose grace period has lapsed, except
+  suspended accounts, which it always skips.
+
+### 2. Verify after deploying
+```bash
+# Confirm the new columns exist
+PGPASSWORD='matchmate' psql -h 127.0.0.1 -U dev_user -d matchmate_db -c \
+  "\d app_users" | grep -E "deletion_requested_at|scheduled_purge_at"
+PGPASSWORD='matchmate' psql -h 127.0.0.1 -U dev_user -d matchmate_db -c \
+  "SELECT deletion_grace_period_days FROM app_branding WHERE id = 1;"
+
+# Confirm the scheduler is registered (no output expected here beyond startup logs —
+# the job only logs when it actually finds accounts due for purge)
+sudo docker compose -f /opt/matchmate-backend/compose.yml logs app | grep -i "AccountPurgeScheduler\|flyway" -i
+```
+
+### 3. Changing the grace period
+Admins change it via the existing branding endpoints — no redeploy needed:
+```
+PUT /api/v1/admin/branding
+{ "deletionGracePeriodDays": 14, ... (other required branding fields) }
+```
+Only affects accounts that request deletion *after* the change; an account already
+`PENDING_DELETION` keeps the `scheduled_purge_at` it was given when it requested deletion.
+
+### 4. Server timezone matters for the purge cron
+`@Scheduled(cron = "0 0 3 * * *")` runs at 03:00 in the **container/VM's local timezone**, not
+UTC unless the VM is set to UTC. Check with `date` on the VM; if you need a specific wall-clock
+time regardless of VM timezone, the cron expression would need a `TimeZone` attribute added in
+`AccountPurgeScheduler.java` — not currently set.
