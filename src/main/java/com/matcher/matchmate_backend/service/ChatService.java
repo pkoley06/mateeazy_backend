@@ -79,8 +79,9 @@ public class ChatService {
         if (requesterId.equals(otherUserId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot start a conversation with yourself");
         }
-        UUID userOneId = requesterId.compareTo(otherUserId) < 0 ? requesterId : otherUserId;
-        UUID userTwoId = requesterId.compareTo(otherUserId) < 0 ? otherUserId : requesterId;
+        boolean requesterFirst = compareUuids(requesterId, otherUserId) < 0;
+        UUID userOneId = requesterFirst ? requesterId : otherUserId;
+        UUID userTwoId = requesterFirst ? otherUserId : requesterId;
 
         Conversation conversation = conversationRepository.findByUserOneIdAndUserTwoId(userOneId, userTwoId)
                 .orElseGet(() -> createConversation(userOneId, userTwoId, listingId));
@@ -316,6 +317,12 @@ public class ChatService {
                 .unreadCount(unreadCount)
                 .createdAt(conversation.getCreatedAt())
                 .build();
+    }
+
+    private static int compareUuids(UUID a, UUID b) {
+        // Postgres compares UUIDs lexicographically by canonical hex string (unsigned byte order).
+        // java.util.UUID.compareTo compares signed longs, which reverses order for high-bit hex (>= '8').
+        return a.toString().compareTo(b.toString());
     }
 
     private MessageResponse toMessageResponse(Message m) {
