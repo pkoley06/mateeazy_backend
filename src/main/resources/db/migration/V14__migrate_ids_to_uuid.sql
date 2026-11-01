@@ -4,7 +4,8 @@
 -- are internal/admin-only and are intentionally left on BIGINT IDENTITY — out of scope.
 --
 -- Data-preserving, not a wipe: every existing row keeps its data and relationships, it just
--- gets a new random primary key. Postgres 16 ships gen_random_uuid() natively (no extension).
+-- gets a new random primary key.
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 --
 -- Strategy per table: add a new UUID column (backfilled per-row), add new UUID FK columns and
 -- populate them by joining on the OLD bigint id to the parent's freshly-assigned new id, then
