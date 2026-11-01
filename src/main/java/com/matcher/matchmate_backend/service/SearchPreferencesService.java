@@ -40,8 +40,20 @@ public class SearchPreferencesService {
 
     @Transactional
     public void updateFcmToken(Long userId, String token) {
+        // The same physical device's token must never be live on two accounts at once - clear
+        // it off whoever else holds it (typically a previous user who signed out on this device
+        // without the client getting a chance to explicitly unregister it) before claiming it.
+        userRepository.clearFcmTokenForOtherUsers(token, userId);
         AppUser user = getUser(userId);
         user.setFcmToken(token);
+        userRepository.save(user);
+    }
+
+    /** Called on sign-out so a push meant for this user never lands on the device after someone else signs in on it. */
+    @Transactional
+    public void clearFcmToken(Long userId) {
+        AppUser user = getUser(userId);
+        user.setFcmToken(null);
         userRepository.save(user);
     }
 

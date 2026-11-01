@@ -6,6 +6,7 @@ import org.locationtech.jts.geom.Point;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -48,4 +49,14 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
 
     /** AccountPurgeScheduler: rows whose grace period has lapsed. */
     List<AppUser> findByAccountStatusAndScheduledPurgeAtBefore(AccountStatus accountStatus, OffsetDateTime cutoff);
+
+    /**
+     * FCM tokens are per-device, not per-user. Before a new user registers this device's token,
+     * strip it off whoever else still holds it (e.g. an account that just signed out on this
+     * same device) so a push for the old user can never land on this device while it's signed
+     * in as someone else.
+     */
+    @Modifying
+    @Query("UPDATE AppUser u SET u.fcmToken = NULL WHERE u.fcmToken = :token AND u.id <> :excludeUserId")
+    void clearFcmTokenForOtherUsers(@Param("token") String token, @Param("excludeUserId") Long excludeUserId);
 }

@@ -31,6 +31,19 @@ public class SearchPreferencesController {
         return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "FCM token updated successfully"));
     }
 
+    /**
+     * Called right before a voluntary sign-out, so a push meant for this user can't land on the
+     * device after someone else signs in on it. (disable/delete already clear it server-side as
+     * part of those flows - this covers the plain sign-out path, which has no other backend call.)
+     */
+    @DeleteMapping("/fcm-token")
+    public ResponseEntity<Void> clearFcmToken(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        searchPreferencesService.clearFcmToken(principal.getUserId());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/search-preferences")
     public ResponseEntity<SearchPreferencesResponse> getSearchPreferences(
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
