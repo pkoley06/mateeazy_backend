@@ -15,6 +15,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /** A user's like on a single room comment (V12 {@code listing_comment_likes}). */
 @Entity
@@ -29,11 +30,11 @@ public class ListingCommentLike {
 
     @Id
     @Column(name = "comment_id")
-    private Long commentId;
+    private UUID commentId;
 
     @Id
     @Column(name = "user_id")
-    private Long userId;
+    private UUID userId;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -43,7 +44,7 @@ public class ListingCommentLike {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ListingCommentLikeId implements Serializable {
-        private Long commentId;
-        private Long userId;
+        private UUID commentId;
+        private UUID userId;
     }
 }

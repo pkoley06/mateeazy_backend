@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /** Admin console: inspect the room-comment log and remove anything flagged. */
 @Service
@@ -38,32 +39,32 @@ public class AdminCommentService {
     }
 
     @Transactional
-    public PageResponse<AdminCommentResponse> list(String search, Long listingId, int page, int size) {
+    public PageResponse<AdminCommentResponse> list(String search, UUID listingId, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.clamp(size, 1, 100);
         String query = StringUtils.hasText(search) ? search.trim() : null;
 
         Page<ListingComment> result = commentRepository.searchForModeration(query, listingId, PageRequest.of(safePage, safeSize));
 
-        List<Long> ids = result.getContent().stream().map(ListingComment::getId).toList();
-        Map<Long, Long> likeCounts = new HashMap<>();
+        List<UUID> ids = result.getContent().stream().map(ListingComment::getId).toList();
+        Map<UUID, Long> likeCounts = new HashMap<>();
         if (!ids.isEmpty()) {
             for (Object[] row : commentLikeRepository.countByCommentIds(ids)) {
-                likeCounts.put((Long) row[0], (Long) row[1]);
+                likeCounts.put((UUID) row[0], (Long) row[1]);
             }
         }
         return PageResponse.of(result, c -> toResponse(c, likeCounts.getOrDefault(c.getId(), 0L)));
     }
 
     @Transactional
-    public AdminCommentResponse getById(Long id) {
+    public AdminCommentResponse getById(UUID id) {
         ListingComment comment = commentRepository.findWithRelations(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found"));
         return toResponse(comment, commentLikeRepository.countByCommentId(id));
     }
 
     /** Deletes and broadcasts the removal to anyone viewing the room thread. */
-    public void delete(Long id) {
+    public void delete(UUID id) {
         interactionService.deleteCommentAsModerator(id);
     }
 

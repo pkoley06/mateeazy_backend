@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Listings owned by app users: create / read / list-mine plus owner-only update and delete.
@@ -50,7 +51,7 @@ public class ListingService {
     }
 
     @Transactional
-    public ListingResponse create(Long hostUserId, ListingCreateRequest request) {
+    public ListingResponse create(UUID hostUserId, ListingCreateRequest request) {
         AppUser host = userRepository.findById(hostUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
@@ -85,7 +86,7 @@ public class ListingService {
      * value, so the client may send the whole pre-filled form or only the delta.
      */
     @Transactional
-    public ListingResponse update(Long requesterUserId, Long listingId, ListingUpdateRequest request) {
+    public ListingResponse update(UUID requesterUserId, UUID listingId, ListingUpdateRequest request) {
         Listing listing = findOwnedListing(requesterUserId, listingId);
 
         if (request.getListingType() != null) listing.setListingType(request.getListingType());
@@ -129,7 +130,7 @@ public class ListingService {
 
     /** Owner-only hard delete. Likes, comments and reports cascade at the database level (V8). */
     @Transactional
-    public void delete(Long requesterUserId, Long listingId) {
+    public void delete(UUID requesterUserId, UUID listingId) {
         Listing listing = findOwnedListing(requesterUserId, listingId);
         List<String> photoUrls = listing.getPhotoUrls();
         listingRepository.delete(listing);
@@ -137,7 +138,7 @@ public class ListingService {
     }
 
     @Transactional
-    public ListingResponse getById(Long listingId) {
+    public ListingResponse getById(UUID listingId) {
         Listing listing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found"));
         AppUser host = listing.getHostUser();
@@ -149,11 +150,11 @@ public class ListingService {
     }
 
     @Transactional
-    public List<ListingResponse> getMine(Long hostUserId) {
+    public List<ListingResponse> getMine(UUID hostUserId) {
         return listingRepository.findByHostUserId(hostUserId).stream().map(this::toResponse).toList();
     }
 
-    private Listing findOwnedListing(Long requesterUserId, Long listingId) {
+    private Listing findOwnedListing(UUID requesterUserId, UUID listingId) {
         Listing listing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found"));
         if (listing.getHostUser() == null || !listing.getHostUser().getId().equals(requesterUserId)) {

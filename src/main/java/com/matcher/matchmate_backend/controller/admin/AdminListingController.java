@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/v1/admin/listings")
 public class AdminListingController {
@@ -32,7 +34,7 @@ public class AdminListingController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<AdminListingDetailResponse> getById(@PathVariable Long id) {
+    public ResponseEntity<AdminListingDetailResponse> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(adminListingService.getById(id));
     }
 
@@ -43,7 +45,7 @@ public class AdminListingController {
 
     @PutMapping("/{id}")
     public ResponseEntity<AdminListingDetailResponse> update(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody AdminListingUpdateRequest request
     ) {
         return ResponseEntity.ok(adminListingService.update(id, request));
@@ -51,14 +53,14 @@ public class AdminListingController {
 
     @PatchMapping("/{id}/available")
     public ResponseEntity<AdminListingDetailResponse> setAvailable(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @RequestBody SetAvailableRequest request
     ) {
         return ResponseEntity.ok(adminListingService.setAvailable(id, request.available()));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
         adminListingService.delete(id);
         return ResponseEntity.noContent().build();
     }

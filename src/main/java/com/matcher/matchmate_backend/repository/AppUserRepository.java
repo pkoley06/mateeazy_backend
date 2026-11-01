@@ -13,8 +13,9 @@ import org.springframework.data.repository.query.Param;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
-public interface AppUserRepository extends JpaRepository<AppUser, Long> {
+public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 
     Optional<AppUser> findByFirebaseUid(String firebaseUid);
     boolean existsByFirebaseUid(String firebaseUid);
@@ -40,7 +41,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
         """, nativeQuery = true)
     List<AppUser> findMatchingSeekersForListing(
         @Param("listingLocation") Point listingLocation,
-        @Param("hostUserId") Long hostUserId
+        @Param("hostUserId") UUID hostUserId
     );
 
     long countByIsActiveTrue();
@@ -58,5 +59,14 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
      */
     @Modifying
     @Query("UPDATE AppUser u SET u.fcmToken = NULL WHERE u.fcmToken = :token AND u.id <> :excludeUserId")
-    void clearFcmTokenForOtherUsers(@Param("token") String token, @Param("excludeUserId") Long excludeUserId);
+    void clearFcmTokenForOtherUsers(@Param("token") String token, @Param("excludeUserId") UUID excludeUserId);
+
+    /**
+     * Defensive startup reset: the in-memory {@code PresenceRegistry} always starts empty,
+     * so no user is actually online right after a (re)deploy, but this persisted mirror may
+     * still say otherwise if the previous process didn't shut down cleanly.
+     */
+    @Modifying
+    @Query("UPDATE AppUser u SET u.isOnline = false WHERE u.isOnline = true")
+    void resetAllOnlineStatus();
 }

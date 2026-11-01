@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Shared response shape for create/get/list-mine. Superset of the §6.6 create-response
@@ -22,8 +23,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ListingResponse {
-    private Long id;
-    private Long hostUserId;
+    private UUID id;
+    private UUID hostUserId;
     private String status; // "PUBLISHED" or "UNAVAILABLE", derived from isAvailable
     private ListingType listingType;
     private String title;

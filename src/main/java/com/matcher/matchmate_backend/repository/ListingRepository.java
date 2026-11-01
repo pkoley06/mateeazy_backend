@@ -8,10 +8,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.UUID;
 
-public interface ListingRepository extends JpaRepository<Listing, Long> {
+public interface ListingRepository extends JpaRepository<Listing, UUID> {
 
-    List<Listing> findByHostUserId(Long hostUserId);
+    List<Listing> findByHostUserId(UUID hostUserId);
     List<Listing> findByIsAvailableTrue();
     long countByIsAvailableTrue();
     List<Listing> findTop5ByOrderByCreatedAtDesc();
@@ -36,7 +37,7 @@ public interface ListingRepository extends JpaRepository<Listing, Long> {
     List<Listing> findActiveListingsWithinRadius(
         @Param("seekerLocation") org.locationtech.jts.geom.Point seekerLocation,
         @Param("radiusMeters") double radiusMeters,
-        @Param("seekerUserId") Long seekerUserId
+        @Param("seekerUserId") UUID seekerUserId
     );
 
     /**
@@ -90,7 +91,7 @@ public interface ListingRepository extends JpaRepository<Listing, Long> {
             @Param("lat") double lat,
             @Param("lng") double lng,
             @Param("radiusMeters") double radiusMeters,
-            @Param("currentUserId") Long currentUserId,
+            @Param("currentUserId") UUID currentUserId,
             @Param("gender") String gender,
             @Param("minAge") Integer minAge,
             @Param("maxAge") Integer maxAge,
@@ -128,7 +129,7 @@ public interface ListingRepository extends JpaRepository<Listing, Long> {
             @Param("lat") double lat,
             @Param("lng") double lng,
             @Param("radiusMeters") double radiusMeters,
-            @Param("currentUserId") Long currentUserId,
+            @Param("currentUserId") UUID currentUserId,
             @Param("gender") String gender,
             @Param("minAge") Integer minAge,
             @Param("maxAge") Integer maxAge,
@@ -140,5 +141,5 @@ public interface ListingRepository extends JpaRepository<Listing, Long> {
 
     /** Loads full entities (with the host fetched eagerly) for a page of candidate IDs. */
     @Query("SELECT l FROM Listing l JOIN FETCH l.hostUser WHERE l.id IN :ids")
-    List<Listing> findAllWithHostByIdIn(@Param("ids") List<Long> ids);
+    List<Listing> findAllWithHostByIdIn(@Param("ids") List<UUID> ids);
 }

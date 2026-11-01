@@ -9,6 +9,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,9 +20,9 @@ public class ReportCreateRequest {
     @NotNull(message = "Report type is required (USER or LISTING)")
     private ReportType reportType;
 
-    private Long reportedUserId;
+    private UUID reportedUserId;
 
-    private Long reportedListingId;
+    private UUID reportedListingId;
 
     @NotNull(message = "Reason is required")
     private ReportReason reason;

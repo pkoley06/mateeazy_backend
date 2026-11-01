@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /** One row of GET /api/v1/admin/users. */
 @Data
@@ -16,7 +17,7 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdminUserSummaryResponse {
-    private Long id;
+    private UUID id;
     private String fullName;
     private Gender gender;
     private Integer age;

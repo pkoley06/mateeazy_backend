@@ -17,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -39,7 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String jwt = extractJwtFromRequest(request);
 
         if( StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt) && !jwtTokenProvider.isAdminToken(jwt) ){
-            Long userId = jwtTokenProvider.getUserIdFromToken(jwt);
+            UUID userId = jwtTokenProvider.getUserIdFromToken(jwt);
             String firebaseUid = jwtTokenProvider.getFirebaseUidFromToken(jwt);
 
             // Check if user is suspended or deactivated
@@ -88,7 +89,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private void setAuthentication(HttpServletRequest request, Long userId, String firebaseUid) {
+    private void setAuthentication(HttpServletRequest request, UUID userId, String firebaseUid) {
         AuthenticatedUserPrincipal principal = new AuthenticatedUserPrincipal(userId, firebaseUid);
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());

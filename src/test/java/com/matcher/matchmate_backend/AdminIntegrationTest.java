@@ -151,7 +151,7 @@ class AdminIntegrationTest {
                 .andExpect(jsonPath("$.primaryAuthProvider").value("ADMIN_CREATED"))
                 .andReturn().getResponse().getContentAsString();
 
-        Number newUserId = com.jayway.jsonpath.JsonPath.read(createRes, "$.id");
+        String newUserId = com.jayway.jsonpath.JsonPath.read(createRes, "$.id");
 
         // Toggle active
         mockMvc.perform(patch("/api/v1/admin/users/" + newUserId + "/active")
@@ -189,7 +189,7 @@ class AdminIntegrationTest {
                 .andExpect(jsonPath("$.isAvailable").value(true))
                 .andReturn().getResponse().getContentAsString();
 
-        Number listingId = com.jayway.jsonpath.JsonPath.read(createdJson, "$.id");
+        String listingId = com.jayway.jsonpath.JsonPath.read(createdJson, "$.id");
 
         // List listings
         mockMvc.perform(get("/api/v1/admin/listings")

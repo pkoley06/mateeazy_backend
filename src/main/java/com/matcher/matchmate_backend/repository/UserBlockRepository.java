@@ -9,21 +9,22 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 @Repository
 public interface UserBlockRepository extends JpaRepository<UserBlock, UserBlock.UserBlockId> {
 
-    boolean existsByBlockerIdAndBlockedId(Long blockerId, Long blockedId);
+    boolean existsByBlockerIdAndBlockedId(UUID blockerId, UUID blockedId);
 
-    void deleteByBlockerIdAndBlockedId(Long blockerId, Long blockedId);
+    void deleteByBlockerIdAndBlockedId(UUID blockerId, UUID blockedId);
 
     @Query("SELECT b.blockedId FROM UserBlock b WHERE b.blockerId = :blockerId")
-    Set<Long> findBlockedUserIdsByBlockerId(@Param("blockerId") Long blockerId);
+    Set<UUID> findBlockedUserIdsByBlockerId(@Param("blockerId") UUID blockerId);
 
-    List<UserBlock> findByBlockerIdOrderByCreatedAtDesc(Long blockerId);
+    List<UserBlock> findByBlockerIdOrderByCreatedAtDesc(UUID blockerId);
 
     /** AccountPurgeService: block relationships involving the purged user, as either party. */
     @Modifying
     @Query("DELETE FROM UserBlock b WHERE b.blockerId = :userId OR b.blockedId = :userId")
-    void deleteAllInvolvingUser(@Param("userId") Long userId);
+    void deleteAllInvolvingUser(@Param("userId") UUID userId);
 }

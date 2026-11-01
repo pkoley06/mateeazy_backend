@@ -10,18 +10,19 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReportResponse {
-    private Long id;
-    private Long reporterId;
+    private UUID id;
+    private UUID reporterId;
     private String reporterName;
-    private Long reportedUserId;
+    private UUID reportedUserId;
     private String reportedUserName;
-    private Long reportedListingId;
+    private UUID reportedListingId;
     private String reportedListingTitle;
     private ReportType reportType;
     private ReportReason reason;

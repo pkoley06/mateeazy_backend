@@ -9,6 +9,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.locationtech.jts.geom.Point;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "app_users")
@@ -17,10 +18,10 @@ import java.time.OffsetDateTime;
 @AllArgsConstructor
 @Builder
 public class AppUser {
-    
-    @Id 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "firebase_uid", nullable = false, unique = true, length = 128)
     private String firebaseUid;
@@ -126,6 +127,16 @@ public class AppUser {
     @Column(name = "is_looking_for_room", nullable = false)
     @Builder.Default
     private Boolean isLookingForRoom = true;
+
+    /** Live chat presence mirror (V15). The in-memory {@code PresenceRegistry} is the live
+     *  source of truth while the process is up; this column is only a durable snapshot for
+     *  "last seen" after going offline and for surviving a restart. */
+    @Column(name = "is_online", nullable = false)
+    @Builder.Default
+    private Boolean isOnline = false;
+
+    @Column(name = "last_seen_at")
+    private OffsetDateTime lastSeenAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

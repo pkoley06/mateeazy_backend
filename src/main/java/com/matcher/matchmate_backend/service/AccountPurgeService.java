@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Runs the actual grace-period purge for one user, called by {@link AccountPurgeScheduler} once
@@ -60,7 +61,7 @@ public class AccountPurgeService {
 
     /** Its own transaction per user, called from a different bean (the scheduler) so this method's @Transactional actually applies. */
     @Transactional
-    public void purgeUser(Long userId) {
+    public void purgeUser(UUID userId) {
         AppUser user = userRepository.findById(userId).orElse(null);
         if (user == null || user.getAccountStatus() != AccountStatus.PENDING_DELETION) {
             return; // already cancelled/changed by a race - no-op, not an error

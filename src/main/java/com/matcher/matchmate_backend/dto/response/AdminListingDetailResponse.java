@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /** Detailed payload for GET /api/v1/admin/listings/{id}. */
 @Data
@@ -19,8 +20,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdminListingDetailResponse {
-    private Long id;
-    private Long hostUserId;
+    private UUID id;
+    private UUID hostUserId;
     private String hostUserName;
     private String hostAvatarUrl;
     private ListingType listingType;

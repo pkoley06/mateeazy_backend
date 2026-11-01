@@ -19,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
@@ -32,8 +33,11 @@ import java.util.regex.Pattern;
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     private static final Logger log = LoggerFactory.getLogger(StompAuthChannelInterceptor.class);
-    private static final Pattern ROOM_COMMENTS_TOPIC = Pattern.compile("^/topic/rooms/\\d+/comments$");
+    private static final Pattern ROOM_COMMENTS_TOPIC = Pattern.compile("^/topic/rooms/[0-9a-fA-F-]{36}/comments$");
     private static final String USER_ERROR_QUEUE = "/user/queue/errors";
+    private static final Pattern PRESENCE_TOPIC = Pattern.compile("^/topic/users/[0-9a-fA-F-]{36}/presence$");
+    private static final String USER_MESSAGES_QUEUE = "/user/queue/messages";
+    private static final String USER_MESSAGE_STATUS_QUEUE = "/user/queue/messages/status";
 
     private final JwtTokenProvider jwtTokenProvider;
     private final AppUserRepository userRepository;
@@ -54,7 +58,11 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                 requireUser(accessor, StompCommand.SUBSCRIBE);
                 String destination = accessor.getDestination();
                 boolean allowed = destination != null
-                        && (ROOM_COMMENTS_TOPIC.matcher(destination).matches() || USER_ERROR_QUEUE.equals(destination));
+                        && (ROOM_COMMENTS_TOPIC.matcher(destination).matches()
+                            || USER_ERROR_QUEUE.equals(destination)
+                            || PRESENCE_TOPIC.matcher(destination).matches()
+                            || USER_MESSAGES_QUEUE.equals(destination)
+                            || USER_MESSAGE_STATUS_QUEUE.equals(destination));
                 if (!allowed) {
                     throw new AccessDeniedException("Subscription to " + destination + " is not allowed");
                 }
@@ -77,7 +85,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             throw new BadCredentialsException("Missing or invalid access token");
         }
 
-        Long userId = jwtTokenProvider.getUserIdFromToken(token);
+        UUID userId = jwtTokenProvider.getUserIdFromToken(token);
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new BadCredentialsException("Unknown user"));
         if (Boolean.TRUE.equals(user.getIsSuspended())) {

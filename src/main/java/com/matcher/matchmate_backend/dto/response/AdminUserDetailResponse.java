@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /** GET/POST/PUT /api/v1/admin/users/{id} — full admin-facing view of an AppUser. */
 @Data
@@ -23,7 +24,7 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdminUserDetailResponse {
-    private Long id;
+    private UUID id;
     private PrimaryAuthProvider primaryAuthProvider;
     private String fullName;
     private Gender gender;

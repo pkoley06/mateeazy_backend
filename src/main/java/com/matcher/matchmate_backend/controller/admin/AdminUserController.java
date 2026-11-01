@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/v1/admin/users")
 public class AdminUserController {
@@ -31,7 +33,7 @@ public class AdminUserController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<AdminUserDetailResponse> getById(@PathVariable Long id) {
+    public ResponseEntity<AdminUserDetailResponse> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(adminUserService.getById(id));
     }
 
@@ -42,7 +44,7 @@ public class AdminUserController {
 
     @PutMapping("/{id}")
     public ResponseEntity<AdminUserDetailResponse> update(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody AdminUserUpdateRequest request
     ) {
         return ResponseEntity.ok(adminUserService.update(id, request));
@@ -50,7 +52,7 @@ public class AdminUserController {
 
     @PatchMapping("/{id}/active")
     public ResponseEntity<AdminUserDetailResponse> setActive(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @RequestBody SetActiveRequest request
     ) {
         return ResponseEntity.ok(adminUserService.setActive(id, request.active()));
@@ -58,7 +60,7 @@ public class AdminUserController {
 
     @PatchMapping("/{id}/suspend")
     public ResponseEntity<AdminUserDetailResponse> setSuspended(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @RequestBody SetSuspendedRequest request
     ) {
         return ResponseEntity.ok(adminUserService.setSuspended(id, request.suspended(), request.reason()));

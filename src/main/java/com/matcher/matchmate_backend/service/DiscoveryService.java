@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Milestone 4 Step 4.2: joins the spatial candidate query ({@link ListingRepository}) with
@@ -50,7 +51,7 @@ public class DiscoveryService {
     }
 
     public DiscoveryFeedResponse getFeed(
-            Long currentUserId,
+            UUID currentUserId,
             double lat,
             double lng,
             int radiusKm,
@@ -103,21 +104,21 @@ public class DiscoveryService {
         if (candidates.isEmpty()) return List.of();
 
         // LinkedHashMap preserves the ASC-by-distance order the native query already returned.
-        Map<Long, Double> distanceByListingId = new LinkedHashMap<>();
+        Map<UUID, Double> distanceByListingId = new LinkedHashMap<>();
         for (ListingDistanceProjection row : candidates) {
             distanceByListingId.put(row.getListingId(), row.getDistanceKm());
         }
 
         List<Listing> listings = listingRepository.findAllWithHostByIdIn(List.copyOf(distanceByListingId.keySet()));
-        Map<Long, Listing> listingById = new HashMap<>();
+        Map<UUID, Listing> listingById = new HashMap<>();
         for (Listing listing : listings) {
             listingById.put(listing.getId(), listing);
         }
 
-        Set<Long> blockedUserIds = blockRepository.findBlockedUserIdsByBlockerId(seeker.getId());
+        Set<UUID> blockedUserIds = blockRepository.findBlockedUserIdsByBlockerId(seeker.getId());
 
         List<DiscoveryCardResponse> cards = new java.util.ArrayList<>();
-        for (Map.Entry<Long, Double> entry : distanceByListingId.entrySet()) {
+        for (Map.Entry<UUID, Double> entry : distanceByListingId.entrySet()) {
             Listing listing = listingById.get(entry.getKey());
             if (listing == null) continue; // deleted between the two queries; skip rather than fail the request
 

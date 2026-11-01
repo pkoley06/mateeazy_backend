@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "listing_likes")
@@ -19,11 +20,11 @@ public class ListingLike {
 
     @Id
     @Column(name = "user_id")
-    private Long userId;
+    private UUID userId;
 
     @Id
     @Column(name = "listing_id")
-    private Long listingId;
+    private UUID listingId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
@@ -41,7 +42,7 @@ public class ListingLike {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ListingLikeId implements Serializable {
-        private Long userId;
-        private Long listingId;
+        private UUID userId;
+        private UUID listingId;
     }
 }

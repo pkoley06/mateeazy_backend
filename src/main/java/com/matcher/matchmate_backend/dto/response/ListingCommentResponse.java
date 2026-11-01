@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /** One comment in a room thread; also the payload broadcast over STOMP. */
 @Data
@@ -13,9 +14,9 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ListingCommentResponse {
-    private Long id;
-    private Long listingId;
-    private Long userId;
+    private UUID id;
+    private UUID listingId;
+    private UUID userId;
     private String authorName;
     private String authorAvatarUrl;
     /** Author has completed onboarding (the "verified" tick on the tile). */

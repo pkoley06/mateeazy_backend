@@ -10,21 +10,22 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface ListingLikeRepository extends JpaRepository<ListingLike, ListingLike.ListingLikeId> {
 
-    boolean existsByUserIdAndListingId(Long userId, Long listingId);
+    boolean existsByUserIdAndListingId(UUID userId, UUID listingId);
 
-    Optional<ListingLike> findByUserIdAndListingId(Long userId, Long listingId);
+    Optional<ListingLike> findByUserIdAndListingId(UUID userId, UUID listingId);
 
-    long countByListingId(Long listingId);
+    long countByListingId(UUID listingId);
 
     @Query("SELECT l.listing FROM ListingLike l WHERE l.userId = :userId ORDER BY l.createdAt DESC")
-    List<Listing> findLikedListingsByUserId(@Param("userId") Long userId);
+    List<Listing> findLikedListingsByUserId(@Param("userId") UUID userId);
 
     /** AccountPurgeService: likes the user placed on OTHER users' listings. */
     @Modifying
     @Query("DELETE FROM ListingLike l WHERE l.userId = :userId")
-    void deleteAllByUserId(@Param("userId") Long userId);
+    void deleteAllByUserId(@Param("userId") UUID userId);
 }

@@ -1,12 +1,14 @@
 package com.matcher.matchmate_backend.event;
 
+import java.util.UUID;
+
 /** A user liked (not un-liked) a room; the host may be told, subject to their preferences. */
 public record ListingLikedEvent(
-        Long listingId,
+        UUID listingId,
         String listingTitle,
         String listingLocality,
-        Long hostUserId,
-        Long likerUserId,
+        UUID hostUserId,
+        UUID likerUserId,
         String likerName
 ) {
     public boolean likedByHost() {

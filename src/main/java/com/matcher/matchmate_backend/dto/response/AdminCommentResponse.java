@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /** One row of the admin comment moderation log (GET /api/v1/admin/comments). */
 @Data
@@ -13,12 +14,12 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdminCommentResponse {
-    private Long id;
-    private Long listingId;
+    private UUID id;
+    private UUID listingId;
     private String listingTitle;
     private String listingLocality;
-    private Long listingHostUserId;
-    private Long authorUserId;
+    private UUID listingHostUserId;
+    private UUID authorUserId;
     private String authorName;
     private String authorAvatarUrl;
     private Boolean authorSuspended;

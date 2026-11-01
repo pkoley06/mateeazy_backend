@@ -98,7 +98,7 @@ class ListingControllerIntegrationTest {
                 .andExpect(jsonPath("$.hostUserId").exists())
                 .andReturn().getResponse().getContentAsString();
 
-        Long listingId = ((Number) objectMapper.readValue(createResponse, Map.class).get("id")).longValue();
+        String listingId = (String) objectMapper.readValue(createResponse, Map.class).get("id");
 
         mockMvc.perform(get("/api/v1/listings/" + listingId).header("Authorization", "Bearer " + hostToken))
                 .andExpect(status().isOk())

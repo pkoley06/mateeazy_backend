@@ -25,6 +25,7 @@ import java.time.OffsetDateTime;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class UserService {
@@ -65,7 +66,7 @@ public class UserService {
      * re-runs the "new seeker" host alerts when the user already has a search area set.
      */
     @Transactional
-    public UserProfileResponse updateRoomSeeker(Long userId, boolean isRoomSeeker) {
+    public UserProfileResponse updateRoomSeeker(UUID userId, boolean isRoomSeeker) {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         boolean wasSeeker = Boolean.TRUE.equals(user.getIsLookingForRoom());
@@ -78,7 +79,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserDemographicsResponse updateDemographics(Long userId, DemographicsRequest request){
+    public UserDemographicsResponse updateDemographics(UUID userId, DemographicsRequest request){
         // Enforce Core Product Principle: Age >= 18 validation
         int age = Period.between((request.getDateOfBirth()), LocalDate.now()).getYears();
 
@@ -134,7 +135,7 @@ public class UserService {
      * without resetting the others.
      */
     @Transactional
-    public UserProfileResponse updateLifestyle(Long userId, LifestyleRequest request) {
+    public UserProfileResponse updateLifestyle(UUID userId, LifestyleRequest request) {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
@@ -149,7 +150,7 @@ public class UserService {
     }
 
     /** GET /api/v1/users/me — full profile, used by the Profile strength screen. */
-    public UserProfileResponse getMyProfile(Long userId) {
+    public UserProfileResponse getMyProfile(UUID userId) {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         return toProfileResponse(user);
@@ -157,7 +158,7 @@ public class UserService {
 
     /** GET /api/v1/users/{id} — other user's public profile and their active listings. */
     @Transactional // toResponse reads the lazy host; open-in-view is off
-    public OtherUserProfileResponse getOtherUserProfile(Long targetUserId) {
+    public OtherUserProfileResponse getOtherUserProfile(UUID targetUserId) {
         AppUser user = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
@@ -209,7 +210,7 @@ public class UserService {
      * (see AuthService).
      */
     @Transactional
-    public void disableMyAccount(Long userId) {
+    public void disableMyAccount(UUID userId) {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (user.getAccountStatus() == AccountStatus.DELETED
@@ -230,7 +231,7 @@ public class UserService {
      * grace period, so cancelling within the window restores a fully intact account.
      */
     @Transactional
-    public void deleteMyAccount(Long userId) {
+    public void deleteMyAccount(UUID userId) {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (user.getAccountStatus() == AccountStatus.PENDING_DELETION) {
@@ -262,7 +263,7 @@ public class UserService {
      * hasn't lapsed yet.
      */
     @Transactional
-    public void cancelDeletion(Long userId) {
+    public void cancelDeletion(UUID userId) {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (user.getAccountStatus() != AccountStatus.PENDING_DELETION) {

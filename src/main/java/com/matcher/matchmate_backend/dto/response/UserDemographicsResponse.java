@@ -9,13 +9,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserDemographicsResponse {
-    private Long userId;
+    private UUID userId;
     private String fullName;
     private Gender gender;
     private LocalDate dateOfBirth;

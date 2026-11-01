@@ -11,6 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.UUID;
 
 /** One card in the discovery feed — see "MatchMate Technical Architecture.md" §6.4. */
 @Data
@@ -18,9 +19,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DiscoveryCardResponse {
-    private Long listingId;
+    private UUID listingId;
     private String title;
-    private Long hostUserId;
+    private UUID hostUserId;
     private String hostName;
     private Integer hostAge;
     private Gender hostGender;

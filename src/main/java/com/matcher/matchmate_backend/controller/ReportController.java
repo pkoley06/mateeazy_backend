@@ -11,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -33,7 +34,7 @@ public class ReportController {
 
     @PostMapping("/blocks/{userId}")
     public ResponseEntity<Void> blockUser(
-            @PathVariable Long userId,
+            @PathVariable UUID userId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         reportService.blockUser(principal.getUserId(), userId);
@@ -42,7 +43,7 @@ public class ReportController {
 
     @DeleteMapping("/blocks/{userId}")
     public ResponseEntity<Void> unblockUser(
-            @PathVariable Long userId,
+            @PathVariable UUID userId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         reportService.unblockUser(principal.getUserId(), userId);
@@ -50,7 +51,7 @@ public class ReportController {
     }
 
     @GetMapping("/blocks")
-    public ResponseEntity<Set<Long>> getBlockedUsers(
+    public ResponseEntity<Set<UUID>> getBlockedUsers(
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         return ResponseEntity.ok(reportService.getBlockedUserIds(principal.getUserId()));

@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "user_blocks")
@@ -19,11 +20,11 @@ public class UserBlock {
 
     @Id
     @Column(name = "blocker_id")
-    private Long blockerId;
+    private UUID blockerId;
 
     @Id
     @Column(name = "blocked_id")
-    private Long blockedId;
+    private UUID blockedId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "blocker_id", insertable = false, updatable = false)
@@ -41,7 +42,7 @@ public class UserBlock {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class UserBlockId implements Serializable {
-        private Long blockerId;
-        private Long blockedId;
+        private UUID blockerId;
+        private UUID blockedId;
     }
 }

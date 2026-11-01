@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/listings")
@@ -41,7 +42,7 @@ public class ListingController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ListingResponse> getById(@PathVariable Long id) {
+    public ResponseEntity<ListingResponse> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(listingService.getById(id));
     }
 
@@ -55,7 +56,7 @@ public class ListingController {
     /** Owner-only edit. PUT and PATCH behave identically (partial update). */
     @PutMapping("/{id}")
     public ResponseEntity<ListingResponse> update(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             @Valid @RequestBody ListingUpdateRequest request
     ) {
@@ -64,7 +65,7 @@ public class ListingController {
 
     @PatchMapping("/{id}")
     public ResponseEntity<ListingResponse> patch(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             @Valid @RequestBody ListingUpdateRequest request
     ) {
@@ -74,7 +75,7 @@ public class ListingController {
     /** Owner-only delete. */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         listingService.delete(principal.getUserId(), id);

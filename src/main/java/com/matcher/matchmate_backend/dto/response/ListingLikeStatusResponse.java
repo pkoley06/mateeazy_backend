@@ -5,12 +5,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ListingLikeStatusResponse {
-    private Long listingId;
+    private UUID listingId;
     private Boolean isLiked;
     private Long likesCount;
 }

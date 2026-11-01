@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Service
 public class AdminReportService {
@@ -54,7 +55,7 @@ public class AdminReportService {
     }
 
     @Transactional
-    public ReportResponse resolveReport(Long reportId, AdminReportResolveRequest request) {
+    public ReportResponse resolveReport(UUID reportId, AdminReportResolveRequest request) {
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
 

@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 /** GET /api/v1/users/me — full profile, used by the Profile strength screen. */
 @Data
@@ -21,7 +22,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserProfileResponse {
-    private Long userId;
+    private UUID userId;
     private String fullName;
     private Gender gender;
     private LocalDate dateOfBirth;

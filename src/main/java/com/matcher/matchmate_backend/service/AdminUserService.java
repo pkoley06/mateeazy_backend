@@ -44,7 +44,7 @@ public class AdminUserService {
         return PageResponse.of(result, this::toSummary);
     }
 
-    public AdminUserDetailResponse getById(Long id) {
+    public AdminUserDetailResponse getById(UUID id) {
         return toDetail(findUser(id));
     }
 
@@ -78,7 +78,7 @@ public class AdminUserService {
     }
 
     @Transactional
-    public AdminUserDetailResponse update(Long id, AdminUserUpdateRequest request) {
+    public AdminUserDetailResponse update(UUID id, AdminUserUpdateRequest request) {
         AppUser user = findUser(id);
 
         if (request.getDateOfBirth() != null) {
@@ -102,21 +102,21 @@ public class AdminUserService {
     }
 
     @Transactional
-    public AdminUserDetailResponse setActive(Long id, boolean active) {
+    public AdminUserDetailResponse setActive(UUID id, boolean active) {
         AppUser user = findUser(id);
         user.setIsActive(active);
         return toDetail(userRepository.save(user));
     }
 
     @Transactional
-    public AdminUserDetailResponse setSuspended(Long id, boolean suspended, String reason) {
+    public AdminUserDetailResponse setSuspended(UUID id, boolean suspended, String reason) {
         AppUser user = findUser(id);
         user.setIsSuspended(suspended);
         user.setSuspendedReason(suspended ? reason : null);
         return toDetail(userRepository.save(user));
     }
 
-    private AppUser findUser(Long id) {
+    private AppUser findUser(UUID id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }

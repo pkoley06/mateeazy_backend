@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /** Summary row for GET /api/v1/admin/listings. */
 @Data
@@ -18,9 +19,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdminListingSummaryResponse {
-    private Long id;
+    private UUID id;
     private String title;
-    private Long hostUserId;
+    private UUID hostUserId;
     private String hostUserName;
     private ListingType listingType;
     private RoomType roomType;

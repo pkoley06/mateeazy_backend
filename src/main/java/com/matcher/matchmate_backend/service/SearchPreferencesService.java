@@ -14,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.UUID;
+
 /**
  * Alert area & radius (target location + km) and Room Finder Mode. The two legacy
  * {@code notify*} fields are still served and accepted for older clients but are stored in
@@ -39,7 +41,7 @@ public class SearchPreferencesService {
     }
 
     @Transactional
-    public void updateFcmToken(Long userId, String token) {
+    public void updateFcmToken(UUID userId, String token) {
         // The same physical device's token must never be live on two accounts at once - clear
         // it off whoever else holds it (typically a previous user who signed out on this device
         // without the client getting a chance to explicitly unregister it) before claiming it.
@@ -51,13 +53,13 @@ public class SearchPreferencesService {
 
     /** Called on sign-out so a push meant for this user never lands on the device after someone else signs in on it. */
     @Transactional
-    public void clearFcmToken(Long userId) {
+    public void clearFcmToken(UUID userId) {
         AppUser user = getUser(userId);
         user.setFcmToken(null);
         userRepository.save(user);
     }
 
-    public SearchPreferencesResponse getPreferences(Long userId) {
+    public SearchPreferencesResponse getPreferences(UUID userId) {
         AppUser user = getUser(userId);
         Point loc = user.getTargetSearchLocation() != null ? user.getTargetSearchLocation() : user.getLastKnownLocation();
         UserNotificationPreferences prefs = preferencesService.current(userId);
@@ -74,7 +76,7 @@ public class SearchPreferencesService {
     }
 
     @Transactional
-    public SearchPreferencesResponse updatePreferences(Long userId, SearchPreferencesRequest request) {
+    public SearchPreferencesResponse updatePreferences(UUID userId, SearchPreferencesRequest request) {
         AppUser user = getUser(userId);
 
         Point targetPoint = GEOMETRY_FACTORY.createPoint(new Coordinate(request.getLongitude(), request.getLatitude()));
@@ -100,7 +102,7 @@ public class SearchPreferencesService {
         return getPreferences(saved.getId());
     }
 
-    private AppUser getUser(Long userId) {
+    private AppUser getUser(UUID userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }

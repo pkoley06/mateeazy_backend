@@ -2,6 +2,7 @@ package com.matcher.matchmate_backend.security;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 import javax.crypto.SecretKey;
 
@@ -40,7 +41,7 @@ public class JwtTokenProvider {
     /**
      * Generates a stateless JWT token containing the user's internal ID and Firebase UID.
      */
-    public String generateToken(Long userId, String firebaseUid){
+    public String generateToken(UUID userId, String firebaseUid){
         Date now = new Date();
 
         Date expiryDate = new Date(now.getTime() + expirationMs);
@@ -103,9 +104,9 @@ public class JwtTokenProvider {
     /**
      * Extracts internal User ID from token subject.
      */
-    public Long getUserIdFromToken(String token){
+    public UUID getUserIdFromToken(String token){
         Claims claims = getClaimsFromToken(token);
-        return Long.parseLong(claims.getSubject());
+        return UUID.fromString(claims.getSubject());
     }
 
     /**

@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -24,7 +25,7 @@ import java.util.List;
 public class AdminListingCreateRequest {
 
     @NotNull(message = "Host user ID is required")
-    private Long hostUserId;
+    private UUID hostUserId;
 
     @NotNull(message = "Listing type is required")
     private ListingType listingType;

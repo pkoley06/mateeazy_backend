@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/v1/admin/reports")
 public class AdminReportController {
@@ -32,7 +34,7 @@ public class AdminReportController {
 
     @PostMapping("/{id}/action")
     public ResponseEntity<ReportResponse> resolveReport(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody AdminReportResolveRequest request
     ) {
         return ResponseEntity.ok(adminReportService.resolveReport(id, request));

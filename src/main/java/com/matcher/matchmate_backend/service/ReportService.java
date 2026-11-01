@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class ReportService {
@@ -40,7 +41,7 @@ public class ReportService {
     }
 
     @Transactional
-    public ReportResponse createReport(Long reporterId, ReportCreateRequest request) {
+    public ReportResponse createReport(UUID reporterId, ReportCreateRequest request) {
         AppUser reporter = userRepository.findById(reporterId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reporter not found"));
 
@@ -78,7 +79,7 @@ public class ReportService {
     }
 
     @Transactional
-    public void blockUser(Long blockerId, Long blockedId) {
+    public void blockUser(UUID blockerId, UUID blockedId) {
         if (blockerId.equals(blockedId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot block yourself");
         }
@@ -95,15 +96,15 @@ public class ReportService {
     }
 
     @Transactional
-    public void unblockUser(Long blockerId, Long blockedId) {
+    public void unblockUser(UUID blockerId, UUID blockedId) {
         blockRepository.deleteByBlockerIdAndBlockedId(blockerId, blockedId);
     }
 
-    public Set<Long> getBlockedUserIds(Long blockerId) {
+    public Set<UUID> getBlockedUserIds(UUID blockerId) {
         return blockRepository.findBlockedUserIdsByBlockerId(blockerId);
     }
 
-    public boolean isUserBlocked(Long blockerId, Long blockedId) {
+    public boolean isUserBlocked(UUID blockerId, UUID blockedId) {
         return blockRepository.existsByBlockerIdAndBlockedId(blockerId, blockedId);
     }
 

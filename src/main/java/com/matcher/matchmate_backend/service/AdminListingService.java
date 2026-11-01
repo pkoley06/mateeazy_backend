@@ -24,6 +24,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.UUID;
 
 @Service
 public class AdminListingService {
@@ -55,7 +56,7 @@ public class AdminListingService {
         return PageResponse.of(result, this::toSummary);
     }
 
-    public AdminListingDetailResponse getById(Long id) {
+    public AdminListingDetailResponse getById(UUID id) {
         return toDetail(findListing(id));
     }
 
@@ -91,7 +92,7 @@ public class AdminListingService {
     }
 
     @Transactional
-    public AdminListingDetailResponse update(Long id, AdminListingUpdateRequest request) {
+    public AdminListingDetailResponse update(UUID id, AdminListingUpdateRequest request) {
         Listing listing = findListing(id);
 
         if (request.getListingType() != null) listing.setListingType(request.getListingType());
@@ -124,7 +125,7 @@ public class AdminListingService {
     }
 
     @Transactional
-    public AdminListingDetailResponse setAvailable(Long id, boolean available) {
+    public AdminListingDetailResponse setAvailable(UUID id, boolean available) {
         Listing listing = findListing(id);
         listing.setIsAvailable(available);
         Listing saved = listingRepository.save(listing);
@@ -133,12 +134,12 @@ public class AdminListingService {
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void delete(UUID id) {
         Listing listing = findListing(id);
         listingRepository.delete(listing);
     }
 
-    private Listing findListing(Long id) {
+    private Listing findListing(UUID id) {
         return listingRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found"));
     }

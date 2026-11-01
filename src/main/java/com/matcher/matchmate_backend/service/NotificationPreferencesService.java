@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.UUID;
 import java.util.function.Predicate;
 
 /**
@@ -31,12 +32,12 @@ public class NotificationPreferencesService {
         this.userRepository = userRepository;
     }
 
-    public NotificationPreferencesResponse get(Long userId) {
+    public NotificationPreferencesResponse get(UUID userId) {
         return NotificationPreferencesResponse.from(current(userId));
     }
 
     @Transactional
-    public NotificationPreferencesResponse update(Long userId, NotificationPreferencesRequest request) {
+    public NotificationPreferencesResponse update(UUID userId, NotificationPreferencesRequest request) {
         if (!userRepository.existsById(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
@@ -50,7 +51,7 @@ public class NotificationPreferencesService {
 
     /** Legacy bridge for the search-preferences endpoint, which still exposes two of the switches. */
     @Transactional
-    public void setNearbyAlerts(Long userId, Boolean roomsNearby, Boolean seekersNearby) {
+    public void setNearbyAlerts(UUID userId, Boolean roomsNearby, Boolean seekersNearby) {
         if (roomsNearby == null && seekersNearby == null) return;
         UserNotificationPreferences prefs = current(userId);
         if (roomsNearby != null) prefs.setNotifyRoomsNearby(roomsNearby);
@@ -59,13 +60,13 @@ public class NotificationPreferencesService {
     }
 
     /** {@code true} when the given switch is on (or the user never customised anything). */
-    public boolean allows(Long userId, Predicate<UserNotificationPreferences> flag) {
+    public boolean allows(UUID userId, Predicate<UserNotificationPreferences> flag) {
         if (userId == null) return false;
         return preferencesRepository.findById(userId).map(flag::test).orElse(true);
     }
 
     /** Stored row or in-memory defaults (not persisted) when the user never customised anything. */
-    public UserNotificationPreferences current(Long userId) {
+    public UserNotificationPreferences current(UUID userId) {
         return preferencesRepository.findById(userId)
                 .orElseGet(() -> UserNotificationPreferences.defaultsFor(userId));
     }

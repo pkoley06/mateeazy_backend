@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * STOMP entry point for posting a comment: {@code SEND /app/rooms/{roomId}/comment.send}
@@ -38,11 +39,11 @@ public class ListingCommentSocketController {
 
     @MessageMapping("/rooms/{roomId}/comment.send")
     public void sendComment(
-            @DestinationVariable Long roomId,
+            @DestinationVariable UUID roomId,
             @Payload ListingCommentCreateRequest request,
             Principal principal
     ) {
-        Long userId = requireUserId(principal);
+        UUID userId = requireUserId(principal);
         validate(request);
         interactionService.addComment(userId, roomId, request);
     }
@@ -58,7 +59,7 @@ public class ListingCommentSocketController {
         return Map.of("error", "COMMENT_REJECTED", "message", message == null ? "Rejected" : message);
     }
 
-    private static Long requireUserId(Principal principal) {
+    private static UUID requireUserId(Principal principal) {
         if (principal instanceof Authentication auth && auth.getPrincipal() instanceof AuthenticatedUserPrincipal user) {
             return user.getUserId();
         }

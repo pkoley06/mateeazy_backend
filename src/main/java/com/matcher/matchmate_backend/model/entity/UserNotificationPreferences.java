@@ -12,6 +12,7 @@ import lombok.Setter;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /**
  * Per-user push notification switches (V12). One row per user, keyed by the user id;
@@ -28,7 +29,7 @@ public class UserNotificationPreferences {
 
     @Id
     @Column(name = "user_id")
-    private Long userId;
+    private UUID userId;
 
     @Column(name = "notify_likes_comments", nullable = false)
     @Builder.Default
@@ -50,7 +51,7 @@ public class UserNotificationPreferences {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
-    public static UserNotificationPreferences defaultsFor(Long userId) {
+    public static UserNotificationPreferences defaultsFor(UUID userId) {
         return UserNotificationPreferences.builder().userId(userId).build();
     }
 }

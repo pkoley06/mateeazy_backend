@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
+
 /** Comment moderation log. Protected by the admin filter chain (ROLE_ADMIN). */
 @RestController
 @RequestMapping("/api/v1/admin/comments")
@@ -25,7 +27,7 @@ public class AdminCommentController {
     @GetMapping
     public ResponseEntity<PageResponse<AdminCommentResponse>> list(
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) Long listingId,
+            @RequestParam(required = false) UUID listingId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
@@ -33,12 +35,12 @@ public class AdminCommentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<AdminCommentResponse> getById(@PathVariable Long id) {
+    public ResponseEntity<AdminCommentResponse> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(adminCommentService.getById(id));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
         adminCommentService.delete(id);
         return ResponseEntity.noContent().build();
     }

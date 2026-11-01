@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Likes and comments on rooms. Writes publish application events that are relayed after
@@ -69,7 +70,7 @@ public class ListingInteractionService {
     // ------------------------------------------------------------------ room likes
 
     @Transactional
-    public ListingLikeStatusResponse toggleLike(Long userId, Long listingId) {
+    public ListingLikeStatusResponse toggleLike(UUID userId, UUID listingId) {
         Listing listing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found"));
 
@@ -101,7 +102,7 @@ public class ListingInteractionService {
                 .build();
     }
 
-    public ListingLikeStatusResponse getLikeStatus(Long userId, Long listingId) {
+    public ListingLikeStatusResponse getLikeStatus(UUID userId, UUID listingId) {
         if (!listingRepository.existsById(listingId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found");
         }
@@ -116,7 +117,7 @@ public class ListingInteractionService {
 
     /** Transactional so {@code toResponse} can read the lazy host (open-in-view is off). */
     @Transactional
-    public List<ListingResponse> getLikedListings(Long userId) {
+    public List<ListingResponse> getLikedListings(UUID userId) {
         List<Listing> listings = likeRepository.findLikedListingsByUserId(userId);
         return listings.stream().map(listingService::toResponse).toList();
     }
@@ -125,20 +126,20 @@ public class ListingInteractionService {
 
     /** Full thread, oldest first, with like counts and the viewer's own likes resolved in two queries. */
     @Transactional
-    public List<ListingCommentResponse> getComments(Long viewerUserId, Long listingId) {
+    public List<ListingCommentResponse> getComments(UUID viewerUserId, UUID listingId) {
         Listing listing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found"));
-        Long hostId = listing.getHostUser() != null ? listing.getHostUser().getId() : null;
+        UUID hostId = listing.getHostUser() != null ? listing.getHostUser().getId() : null;
 
         List<ListingComment> comments = commentRepository.findThread(listingId);
         if (comments.isEmpty()) return List.of();
 
-        List<Long> ids = comments.stream().map(ListingComment::getId).toList();
-        Map<Long, Long> likeCounts = new HashMap<>();
+        List<UUID> ids = comments.stream().map(ListingComment::getId).toList();
+        Map<UUID, Long> likeCounts = new HashMap<>();
         for (Object[] row : commentLikeRepository.countByCommentIds(ids)) {
-            likeCounts.put((Long) row[0], (Long) row[1]);
+            likeCounts.put((UUID) row[0], (Long) row[1]);
         }
-        Set<Long> likedByViewer = viewerUserId != null
+        Set<UUID> likedByViewer = viewerUserId != null
                 ? commentLikeRepository.findLikedCommentIds(viewerUserId, ids)
                 : Collections.emptySet();
 
@@ -148,7 +149,7 @@ public class ListingInteractionService {
     }
 
     @Transactional
-    public ListingCommentResponse addComment(Long userId, Long listingId, ListingCommentCreateRequest request) {
+    public ListingCommentResponse addComment(UUID userId, UUID listingId, ListingCommentCreateRequest request) {
         Listing listing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found"));
         AppUser author = userRepository.findById(userId)
@@ -161,7 +162,7 @@ public class ListingInteractionService {
                 .build());
 
         AppUser host = listing.getHostUser();
-        Long hostId = host != null ? host.getId() : null;
+        UUID hostId = host != null ? host.getId() : null;
         ListingCommentResponse response = toCommentResponse(saved, hostId, 0L, false);
         long commentsCount = commentRepository.countByListingId(listingId);
 
@@ -182,7 +183,7 @@ public class ListingInteractionService {
 
     /** Author or room host may delete. */
     @Transactional
-    public void deleteComment(Long userId, Long commentId) {
+    public void deleteComment(UUID userId, UUID commentId) {
         ListingComment comment = commentRepository.findWithRelations(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found"));
 
@@ -196,15 +197,15 @@ public class ListingInteractionService {
 
     /** Admin moderation: no ownership check. */
     @Transactional
-    public void deleteCommentAsModerator(Long commentId) {
+    public void deleteCommentAsModerator(UUID commentId) {
         ListingComment comment = commentRepository.findWithRelations(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found"));
         removeComment(comment);
     }
 
     private void removeComment(ListingComment comment) {
-        Long listingId = comment.getListing().getId();
-        Long commentId = comment.getId();
+        UUID listingId = comment.getListing().getId();
+        UUID commentId = comment.getId();
         commentRepository.delete(comment);
         commentRepository.flush();
         long remaining = commentRepository.countByListingId(listingId);
@@ -220,7 +221,7 @@ public class ListingInteractionService {
     // ------------------------------------------------------------------ comment likes
 
     @Transactional
-    public ListingCommentLikeStatusResponse toggleCommentLike(Long userId, Long commentId) {
+    public ListingCommentLikeStatusResponse toggleCommentLike(UUID userId, UUID commentId) {
         ListingComment comment = commentRepository.findWithRelations(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found"));
 
@@ -237,7 +238,7 @@ public class ListingInteractionService {
         long likesCount = commentLikeRepository.countByCommentId(commentId);
 
         Listing listing = comment.getListing();
-        Long hostId = listing.getHostUser() != null ? listing.getHostUser().getId() : null;
+        UUID hostId = listing.getHostUser() != null ? listing.getHostUser().getId() : null;
         eventPublisher.publishEvent(new ListingCommentChangedEvent(ListingCommentEvent.builder()
                 .type(ListingCommentEvent.Type.COMMENT_LIKE_UPDATED)
                 .listingId(listing.getId())
@@ -255,7 +256,7 @@ public class ListingInteractionService {
 
     // ------------------------------------------------------------------ mapping
 
-    public ListingCommentResponse toCommentResponse(ListingComment comment, Long hostUserId, long likesCount, boolean likedByMe) {
+    public ListingCommentResponse toCommentResponse(ListingComment comment, UUID hostUserId, long likesCount, boolean likedByMe) {
         AppUser author = comment.getUser();
         return ListingCommentResponse.builder()
                 .id(comment.getId())

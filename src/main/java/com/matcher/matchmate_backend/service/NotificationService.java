@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * FCM dispatch. Every send is gated by the recipient's {@link UserNotificationPreferences}:
@@ -143,8 +144,8 @@ public class NotificationService {
      */
     @Async
     public void notifyHostOfNewComment(
-            Long listingId, String listingTitle, String listingLocality,
-            AppUser host, Long authorUserId, String authorName, String content
+            UUID listingId, String listingTitle, String listingLocality,
+            AppUser host, UUID authorUserId, String authorName, String content
     ) {
         if (listingId == null || host == null) return;
         if (host.getFcmToken() == null || host.getFcmToken().isBlank()) return;
@@ -177,8 +178,8 @@ public class NotificationService {
     /** Someone saved the host's room. Same "Likes & Comments" switch as comment alerts. */
     @Async
     public void notifyHostOfListingLike(
-            Long listingId, String listingTitle, String listingLocality,
-            AppUser host, Long likerUserId, String likerName
+            UUID listingId, String listingTitle, String listingLocality,
+            AppUser host, UUID likerUserId, String likerName
     ) {
         if (listingId == null || host == null) return;
         if (host.getFcmToken() == null || host.getFcmToken().isBlank()) return;
@@ -249,6 +250,46 @@ public class NotificationService {
             }
         } catch (Exception e) {
             log.error("[FCM] Error notifying hosts for seeker #{}: {}", seeker.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * Someone sent the recipient a chat message. Called from {@code ChatEventListener} only
+     * when the recipient has no live presence session right now - if they're online they see
+     * it over the socket instead. Skipped when they muted "Messages".
+     */
+    @Async
+    public void notifyRecipientOfChatMessage(
+            AppUser recipient, UUID conversationId, UUID senderId, String senderName, UUID messageId, String messageText
+    ) {
+        if (recipient == null) return;
+        if (recipient.getFcmToken() == null || recipient.getFcmToken().isBlank()) return;
+        if (!preferencesService.allows(recipient.getId(), UserNotificationPreferences::getNotifyMessages)) {
+            log.debug("[FCM] User #{} muted messages; skipping chat push", recipient.getId());
+            return;
+        }
+
+        try {
+            String preview = messageText == null ? "" : messageText.trim();
+            if (preview.length() > 90) preview = preview.substring(0, 87) + "…";
+
+            String title = "💬 " + senderName;
+            String body = preview.isEmpty() ? "Sent you a message." : preview;
+
+            Map<String, String> data = new HashMap<>();
+            data.put("type", "CHAT_MESSAGE");
+            data.put("conversation_id", String.valueOf(conversationId));
+            data.put("sender_id", String.valueOf(senderId));
+            data.put("sender_name", senderName != null ? senderName : "");
+            data.put("message_id", String.valueOf(messageId));
+            data.put("message_text", preview);
+            data.put("route", "/chat/" + conversationId);
+            data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
+
+            sendPush(recipient.getFcmToken(), title, body, data);
+        } catch (Exception e) {
+            log.error("[FCM] Error notifying user #{} about a chat message in conversation #{}: {}",
+                    recipient.getId(), conversationId, e.getMessage());
         }
     }
 

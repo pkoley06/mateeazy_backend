@@ -9,13 +9,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class OtherUserProfileResponse {
-    private Long id;
+    private UUID id;
     private String fullName;
     private Gender gender;
     private Integer age;

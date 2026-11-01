@@ -14,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/listings")
@@ -27,7 +28,7 @@ public class ListingInteractionController {
 
     @PostMapping("/{id}/like")
     public ResponseEntity<ListingLikeStatusResponse> toggleLike(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         return ResponseEntity.ok(interactionService.toggleLike(principal.getUserId(), id));
@@ -35,7 +36,7 @@ public class ListingInteractionController {
 
     @GetMapping("/{id}/like")
     public ResponseEntity<ListingLikeStatusResponse> getLikeStatus(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         return ResponseEntity.ok(interactionService.getLikeStatus(principal.getUserId(), id));
@@ -50,7 +51,7 @@ public class ListingInteractionController {
 
     @GetMapping("/{id}/comments")
     public ResponseEntity<List<ListingCommentResponse>> getComments(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         return ResponseEntity.ok(interactionService.getComments(principal.getUserId(), id));
@@ -59,7 +60,7 @@ public class ListingInteractionController {
     /** REST fallback for posting; the STOMP path ({@code /app/rooms/{id}/comment.send}) is equivalent. */
     @PostMapping("/{id}/comments")
     public ResponseEntity<ListingCommentResponse> addComment(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             @Valid @RequestBody ListingCommentCreateRequest request
     ) {
@@ -69,7 +70,7 @@ public class ListingInteractionController {
 
     @DeleteMapping("/comments/{commentId}")
     public ResponseEntity<Void> deleteComment(
-            @PathVariable Long commentId,
+            @PathVariable UUID commentId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         interactionService.deleteComment(principal.getUserId(), commentId);
@@ -78,7 +79,7 @@ public class ListingInteractionController {
 
     @PostMapping("/comments/{commentId}/like")
     public ResponseEntity<ListingCommentLikeStatusResponse> toggleCommentLike(
-            @PathVariable Long commentId,
+            @PathVariable UUID commentId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         return ResponseEntity.ok(interactionService.toggleCommentLike(principal.getUserId(), commentId));

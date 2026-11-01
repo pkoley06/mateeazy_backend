@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 /**
  * Envelope broadcast on {@code /topic/rooms/{listingId}/comments}.
  * <ul>
@@ -23,8 +25,8 @@ public class ListingCommentEvent {
     public enum Type { COMMENT_CREATED, COMMENT_DELETED, COMMENT_LIKE_UPDATED }
 
     private Type type;
-    private Long listingId;
-    private Long commentId;
+    private UUID listingId;
+    private UUID commentId;
     private ListingCommentResponse comment;
     private long commentsCount;
 }
