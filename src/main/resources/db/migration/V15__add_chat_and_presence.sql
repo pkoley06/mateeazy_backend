@@ -1,7 +1,7 @@
 -- V15: Chat (conversations + messages) and presence tracking, on top of the UUID ids
 -- established in V14. Conversation/Message are brand new, so they get UUID primary keys
 -- from inception (gen_random_uuid(), pgcrypto extension ensured).
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- gen_random_uuid guaranteed from V14
 
 -- ------------------------------------------------------------------------------------------
 -- 1. Presence columns on app_users

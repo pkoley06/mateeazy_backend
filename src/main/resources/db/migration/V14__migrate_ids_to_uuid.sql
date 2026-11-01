@@ -5,7 +5,27 @@
 --
 -- Data-preserving, not a wipe: every existing row keeps its data and relationships, it just
 -- gets a new random primary key.
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- Ensure gen_random_uuid() exists without requiring superuser / extensions:
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_proc WHERE proname = 'gen_random_uuid'
+    ) THEN
+        EXECUTE '
+        CREATE OR REPLACE FUNCTION gen_random_uuid() RETURNS uuid AS $func$
+        SELECT (
+            substr(m, 1, 8) || ''-'' ||
+            substr(m, 9, 4) || ''-4'' ||
+            substr(m, 14, 3) || ''-'' ||
+            substr(''89ab'', (floor(random() * 4)::int + 1), 1) ||
+            substr(m, 18, 3) || ''-'' ||
+            substr(m, 21, 12)
+        )::uuid
+        FROM (SELECT md5(random()::text || clock_timestamp()::text) AS m) sub;
+        $func$ LANGUAGE sql;
+        ';
+    END IF;
+END $$;
 --
 -- Strategy per table: add a new UUID column (backfilled per-row), add new UUID FK columns and
 -- populate them by joining on the OLD bigint id to the parent's freshly-assigned new id, then
