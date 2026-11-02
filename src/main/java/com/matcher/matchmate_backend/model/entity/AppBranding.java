@@ -21,7 +21,7 @@ public class AppBranding {
 
     @Column(name = "app_name", nullable = false, length = 100)
     @Builder.Default
-    private String appName = "MatchMate";
+    private String appName = "MateEazy";
 
     @Column(name = "tagline", length = 255)
     @Builder.Default
@@ -39,7 +39,7 @@ public class AppBranding {
 
     @Column(name = "support_email", length = 100)
     @Builder.Default
-    private String supportEmail = "support@matchmate.com";
+    private String supportEmail = "support@mateeazy.com";
 
     @Column(name = "terms_url", length = 500)
     private String termsUrl;
@@ -56,14 +56,14 @@ public class AppBranding {
 
     @Column(name = "developer_upi_id", length = 100)
     @Builder.Default
-    private String developerUpiId = "matchmate.dev@upi";
+    private String developerUpiId = "mateeazy.dev@upi";
 
     @Column(name = "developer_qr_code_url", columnDefinition = "TEXT")
     private String developerQrCodeUrl;
 
     @Column(name = "developer_support_note", columnDefinition = "TEXT")
     @Builder.Default
-    private String developerSupportNote = "Made with ❤️ for flatmates everywhere. If MatchMate helped you find a home, buy the developer a coffee!";
+    private String developerSupportNote = "Made with ❤️ for flatmates everywhere. If MateEazy helped you find a home, buy the developer a coffee!";
 
     /** Days a self-deleted account sits in PENDING_DELETION before AccountPurgeScheduler purges it. */
     @Column(name = "deletion_grace_period_days", nullable = false)

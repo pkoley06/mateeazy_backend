@@ -65,7 +65,7 @@ public class NotificationService {
                     .setPriority(AndroidConfig.Priority.HIGH)
                     .setNotification(AndroidNotification.builder()
                             .setClickAction("FLUTTER_NOTIFICATION_CLICK")
-                            .setChannelId("matchmate_matches")
+                            .setChannelId("mateeazy_matches")
                             .setDefaultSound(true)
                             .build())
                     .build();

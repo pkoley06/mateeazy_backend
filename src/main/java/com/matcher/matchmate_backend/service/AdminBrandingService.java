@@ -56,13 +56,13 @@ public class AdminBrandingService {
         return appBrandingRepository.findById(1L).orElseGet(() -> {
             AppBranding defaults = AppBranding.builder()
                     .id(1L)
-                    .appName("MatchMate")
+                    .appName("MateEazy")
                     .tagline("Find your ideal flatmate & room")
                     .primaryColor("#6750A4")
-                    .supportEmail("support@matchmate.com")
+                    .supportEmail("support@mateeazy.com")
                     .maintenanceMode(false)
-                    .developerUpiId("matchmate.dev@upi")
-                    .developerSupportNote("Made with ❤️ for flatmates everywhere. If MatchMate helped you find a home, buy the developer a coffee!")
+                    .developerUpiId("mateeazy.dev@upi")
+                    .developerSupportNote("Made with ❤️ for flatmates everywhere. If MateEazy helped you find a home, buy the developer a coffee!")
                     .deletionGracePeriodDays(30)
                     .build();
             return appBrandingRepository.save(defaults);

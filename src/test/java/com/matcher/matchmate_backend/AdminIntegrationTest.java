@@ -216,14 +216,14 @@ class AdminIntegrationTest {
         // Public get branding without token
         mockMvc.perform(get("/api/v1/branding"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.appName").value("MatchMate"));
+                .andExpect(jsonPath("$.appName").value("MateEazy"));
 
         // Admin update branding
         Map<String, Object> update = Map.of(
-                "appName", "MatchMate Pro",
+                "appName", "MateEazy Pro",
                 "tagline", "Next-Gen Roommate Matching",
                 "primaryColor", "#1E88E5",
-                "supportEmail", "help@matchmate.io"
+                "supportEmail", "help@mateeazy.io"
         );
 
         mockMvc.perform(put("/api/v1/admin/branding")
@@ -231,7 +231,7 @@ class AdminIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(update)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.appName").value("MatchMate Pro"))
+                .andExpect(jsonPath("$.appName").value("MateEazy Pro"))
                 .andExpect(jsonPath("$.primaryColor").value("#1E88E5"));
     }
 
