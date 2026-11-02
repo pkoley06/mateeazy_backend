@@ -62,9 +62,11 @@ public class NotificationService {
 
         try {
             AndroidConfig androidConfig = AndroidConfig.builder()
+                    .setPriority(AndroidConfig.Priority.HIGH)
                     .setNotification(AndroidNotification.builder()
                             .setClickAction("FLUTTER_NOTIFICATION_CLICK")
                             .setChannelId("matchmate_matches")
+                            .setDefaultSound(true)
                             .build())
                     .build();
 

@@ -79,14 +79,12 @@ public class ChatEventListener {
                     event.messageId(), event.senderId(), e.getMessage());
         }
 
-        if (!presenceRegistry.isOnline(event.recipientId())) {
-            AppUser recipient = userRepository.findById(event.recipientId()).orElse(null);
-            AppUser sender = userRepository.findById(event.senderId()).orElse(null);
-            if (recipient != null && sender != null) {
-                notificationService.notifyRecipientOfChatMessage(
-                        recipient, event.conversationId(), event.senderId(), sender.getFullName(),
-                        event.messageId(), event.content());
-            }
+        AppUser recipient = userRepository.findById(event.recipientId()).orElse(null);
+        AppUser sender = userRepository.findById(event.senderId()).orElse(null);
+        if (recipient != null && sender != null) {
+            notificationService.notifyRecipientOfChatMessage(
+                    recipient, event.conversationId(), event.senderId(), sender.getFullName(),
+                    event.messageId(), event.content());
         }
     }
 
