@@ -115,7 +115,9 @@ public class DiscoveryService {
             listingById.put(listing.getId(), listing);
         }
 
-        Set<UUID> blockedUserIds = blockRepository.findBlockedUserIdsByBlockerId(seeker.getId());
+        Set<UUID> blockedUserIds = new java.util.HashSet<>(blockRepository.findBlockedUserIdsByBlockerId(seeker.getId()));
+        // Blocking is mutual in effect: hosts who blocked the seeker must not see them either.
+        blockedUserIds.addAll(blockRepository.findBlockerIdsByBlockedId(seeker.getId()));
 
         List<DiscoveryCardResponse> cards = new java.util.ArrayList<>();
         for (Map.Entry<UUID, Double> entry : distanceByListingId.entrySet()) {

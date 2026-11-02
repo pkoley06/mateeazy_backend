@@ -1,6 +1,7 @@
 package com.matcher.matchmate_backend.service;
 
 import com.matcher.matchmate_backend.dto.request.ReportCreateRequest;
+import com.matcher.matchmate_backend.dto.response.BlockedUserResponse;
 import com.matcher.matchmate_backend.dto.response.ReportResponse;
 import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.Listing;
@@ -17,6 +18,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -102,6 +106,28 @@ public class ReportService {
 
     public Set<UUID> getBlockedUserIds(UUID blockerId) {
         return blockRepository.findBlockedUserIdsByBlockerId(blockerId);
+    }
+
+    public List<BlockedUserResponse> getBlockedUserDetails(UUID blockerId) {
+        List<UserBlock> blocks = blockRepository.findByBlockerIdOrderByCreatedAtDesc(blockerId);
+        Map<UUID, AppUser> users = new HashMap<>();
+        for (AppUser u : userRepository.findAllById(blocks.stream().map(UserBlock::getBlockedId).toList())) {
+            users.put(u.getId(), u);
+        }
+        return blocks.stream()
+                .filter(b -> users.containsKey(b.getBlockedId()))
+                .map(b -> BlockedUserResponse.builder()
+                        .userId(b.getBlockedId())
+                        .fullName(users.get(b.getBlockedId()).getFullName())
+                        .avatarUrl(users.get(b.getBlockedId()).getAvatarUrl())
+                        .blockedAt(b.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    /** True when either user has blocked the other — messaging between them must be refused. */
+    public boolean isBlockedEitherWay(UUID a, UUID b) {
+        return blockRepository.existsBlockBetween(a, b);
     }
 
     public boolean isUserBlocked(UUID blockerId, UUID blockedId) {

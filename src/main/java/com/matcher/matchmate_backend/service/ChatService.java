@@ -18,6 +18,7 @@ import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.repository.ConversationRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
 import com.matcher.matchmate_backend.repository.MessageRepository;
+import com.matcher.matchmate_backend.repository.UserBlockRepository;
 import com.matcher.matchmate_backend.websocket.PresenceRegistry;
 import jakarta.transaction.Transactional;
 import org.springframework.context.ApplicationEventPublisher;
@@ -31,8 +32,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -53,6 +56,7 @@ public class ChatService {
     private final MessageRepository messageRepository;
     private final AppUserRepository userRepository;
     private final ListingRepository listingRepository;
+    private final UserBlockRepository blockRepository;
     private final PresenceRegistry presenceRegistry;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -61,6 +65,7 @@ public class ChatService {
             MessageRepository messageRepository,
             AppUserRepository userRepository,
             ListingRepository listingRepository,
+            UserBlockRepository blockRepository,
             PresenceRegistry presenceRegistry,
             ApplicationEventPublisher eventPublisher
     ) {
@@ -68,6 +73,7 @@ public class ChatService {
         this.messageRepository = messageRepository;
         this.userRepository = userRepository;
         this.listingRepository = listingRepository;
+        this.blockRepository = blockRepository;
         this.presenceRegistry = presenceRegistry;
         this.eventPublisher = eventPublisher;
     }
@@ -79,6 +85,7 @@ public class ChatService {
         if (requesterId.equals(otherUserId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot start a conversation with yourself");
         }
+        requireNotBlocked(requesterId, otherUserId);
         boolean requesterFirst = compareUuids(requesterId, otherUserId) < 0;
         UUID userOneId = requesterFirst ? requesterId : otherUserId;
         UUID userTwoId = requesterFirst ? otherUserId : requesterId;
@@ -107,8 +114,16 @@ public class ChatService {
 
     @Transactional
     public List<ConversationSummaryResponse> listConversations(UUID userId) {
+        // Conversations with someone the viewer blocked, or who blocked the viewer, are hidden
+        // (they come back on their own if the block is lifted).
+        Set<UUID> hidden = new HashSet<>(blockRepository.findBlockedUserIdsByBlockerId(userId));
+        hidden.addAll(blockRepository.findBlockerIdsByBlockedId(userId));
+
         List<Conversation> conversations = conversationRepository.findAllInvolvingUser(userId);
-        return conversations.stream().map(c -> toSummary(c, userId)).toList();
+        return conversations.stream()
+                .filter(c -> !hidden.contains(otherParticipantId(c, userId)))
+                .map(c -> toSummary(c, userId))
+                .toList();
     }
 
     // ------------------------------------------------------------------ messages
@@ -126,6 +141,7 @@ public class ChatService {
         String trimmed = validateContent(content);
         Conversation conversation = loadConversation(conversationId);
         UUID recipientId = otherParticipantId(conversation, senderId);
+        requireNotBlocked(senderId, recipientId);
 
         AppUser sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -226,6 +242,12 @@ public class ChatService {
     private Conversation loadConversation(UUID conversationId) {
         return conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found"));
+    }
+
+    private void requireNotBlocked(UUID a, UUID b) {
+        if (blockRepository.existsBlockBetween(a, b)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can't message this user");
+        }
     }
 
     private static void requireParticipant(Conversation conversation, UUID userId) {

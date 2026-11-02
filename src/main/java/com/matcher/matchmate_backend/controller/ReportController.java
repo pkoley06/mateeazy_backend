@@ -1,6 +1,7 @@
 package com.matcher.matchmate_backend.controller;
 
 import com.matcher.matchmate_backend.dto.request.ReportCreateRequest;
+import com.matcher.matchmate_backend.dto.response.BlockedUserResponse;
 import com.matcher.matchmate_backend.dto.response.ReportResponse;
 import com.matcher.matchmate_backend.security.AuthenticatedUserPrincipal;
 import com.matcher.matchmate_backend.service.ReportService;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -48,6 +50,14 @@ public class ReportController {
     ) {
         reportService.unblockUser(principal.getUserId(), userId);
         return ResponseEntity.noContent().build();
+    }
+
+    /** People the caller has blocked, with names/avatars, so the app can offer "Blocked users" + unblock. */
+    @GetMapping("/blocks/details")
+    public ResponseEntity<List<BlockedUserResponse>> getBlockedUserDetails(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        return ResponseEntity.ok(reportService.getBlockedUserDetails(principal.getUserId()));
     }
 
     @GetMapping("/blocks")
