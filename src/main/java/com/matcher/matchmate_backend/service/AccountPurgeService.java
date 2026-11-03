@@ -1,9 +1,11 @@
 package com.matcher.matchmate_backend.service;
 
+import com.google.firebase.auth.AuthErrorCode;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuthException;
 import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.Listing;
 import com.matcher.matchmate_backend.model.enums.auth.AccountStatus;
-import com.matcher.matchmate_backend.model.enums.auth.Gender;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.repository.ListingCommentLikeRepository;
 import com.matcher.matchmate_backend.repository.ListingCommentRepository;
@@ -16,17 +18,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * Runs the actual grace-period purge for one user, called by {@link AccountPurgeScheduler} once
- * {@code scheduledPurgeAt} has lapsed. "Purge" here means reset-in-place, not a hard delete: the
- * {@code AppUser} row and its Firebase login survive, blanked back to exactly the state
- * {@link AuthService#autoProvisionUser} gives a brand-new signup, so signing in again just walks
- * through onboarding like a first-time user. This sidesteps FK-cascade risk across listings,
- * comments, likes and blocks that a true hard delete of the row would carry.
+ * {@code scheduledPurgeAt} has lapsed (30 days after the user asked to delete their account).
+ *
+ * <p>This is a real, permanent deletion, matching the published Privacy Policy and Google Play's
+ * account-deletion policy:
+ * <ol>
+ *   <li>the Firebase Authentication user is deleted, so the sign-in itself is gone;</li>
+ *   <li>stored files (listing photos, avatar) are removed from storage;</li>
+ *   <li>the {@code app_users} row is hard-deleted. Every table that references it
+ *       ({@code listings}, comments, likes, reports, blocks, notification preferences,
+ *       {@code conversations} and {@code messages}) is declared {@code ON DELETE CASCADE},
+ *       so the user's chats and everything else go with it.</li>
+ * </ol>
+ * Signing in again with the same Google/phone account afterwards creates a brand-new Firebase
+ * user and a fresh profile.
  */
 @Service
 public class AccountPurgeService {
@@ -40,6 +50,7 @@ public class AccountPurgeService {
     private final ListingCommentLikeRepository listingCommentLikeRepository;
     private final UserBlockRepository userBlockRepository;
     private final StorageService storageService;
+    private final FirebaseAuth firebaseAuth;
 
     public AccountPurgeService(
             AppUserRepository userRepository,
@@ -48,7 +59,8 @@ public class AccountPurgeService {
             ListingLikeRepository listingLikeRepository,
             ListingCommentLikeRepository listingCommentLikeRepository,
             UserBlockRepository userBlockRepository,
-            StorageService storageService
+            StorageService storageService,
+            FirebaseAuth firebaseAuth
     ) {
         this.userRepository = userRepository;
         this.listingRepository = listingRepository;
@@ -57,6 +69,7 @@ public class AccountPurgeService {
         this.listingCommentLikeRepository = listingCommentLikeRepository;
         this.userBlockRepository = userBlockRepository;
         this.storageService = storageService;
+        this.firebaseAuth = firebaseAuth;
     }
 
     /** Its own transaction per user, called from a different bean (the scheduler) so this method's @Transactional actually applies. */
@@ -67,65 +80,59 @@ public class AccountPurgeService {
             return; // already cancelled/changed by a race - no-op, not an error
         }
 
-        // Suspension always wins: a suspended user's data is never purged or reset by this job,
-        // even if the grace period has lapsed. It stays parked until an admin lifts the
-        // suspension, so a suspension can never be laundered by deleting and waiting it out.
+        // Suspension always wins: a suspended user's data is never purged by this job, even if
+        // the grace period has lapsed. It stays parked until an admin lifts the suspension, so a
+        // suspension can never be laundered by deleting and waiting it out.
         if (Boolean.TRUE.equals(user.getIsSuspended())) {
             log.info("Skipping purge of suspended account {} - suspension survives the grace period", userId);
             return;
         }
 
-        // 1. Delete listing photos from storage, then the listings themselves - this cascades
-        //    DB-side (ON DELETE CASCADE) to that listing's likes, comments, comment-likes and
-        //    any moderation reports filed against it.
+        // 1. Delete the Firebase login first. If this fails for any reason other than "already
+        //    gone", the exception aborts the purge and the scheduler retries tomorrow, so the
+        //    database never ends up deleted while the sign-in survives. Re-running after a
+        //    later database failure is safe: a missing Firebase user counts as success.
+        deleteFirebaseUser(user.getFirebaseUid(), userId);
+
+        // 2. Stored files: listing photos, then the avatar.
         List<Listing> listings = listingRepository.findByHostUserId(userId);
         for (Listing listing : listings) {
             for (String url : listing.getPhotoUrls()) {
                 if (storageService.isManagedUrl(url)) storageService.delete(url);
             }
         }
-        listingRepository.deleteAll(listings);
-
-        // 2. The user's own avatar, before the column is wiped below.
         if (user.getAvatarUrl() != null && storageService.isManagedUrl(user.getAvatarUrl())) {
             storageService.delete(user.getAvatarUrl());
         }
 
-        // 3. Content not reachable via the listing cascade above: the user's own comments/likes
-        //    on OTHER users' listings, and block relationships (as blocker or blocked).
+        // 3. Explicit deletes for content outside the user's own listings. (The cascade would
+        //    also catch these; doing it here keeps the intent readable and independent of
+        //    schema details.)
+        listingRepository.deleteAll(listings);
         listingCommentRepository.deleteAllByUserId(userId);
         listingLikeRepository.deleteAllByUserId(userId);
         listingCommentLikeRepository.deleteAllByUserId(userId);
         userBlockRepository.deleteAllInvolvingUser(userId);
 
-        // 4. Reset the row to the exact blank slate AuthService.autoProvisionUser uses.
-        user.setFullName("New Roommate");
-        user.setAvatarUrl(null);
-        user.setBio(null);
-        user.setDateOfBirth(LocalDate.of(2000, 1, 1));
-        user.setGender(Gender.OTHERS);
-        user.setOccupationCategory(null);
-        user.setOccupationTitle(null);
-        user.setSmokingHabit(null);
-        user.setDietaryPreference(null);
-        user.setSleepSchedule(null);
-        user.setCleanlinessLevel(null);
-        user.setGuestTolerance(null);
-        user.setLastKnownLocation(null);
-        user.setLastKnownLocality("Kolkata");
-        user.setTargetSearchLocation(null);
-        user.setTargetSearchLocality(null);
-        user.setSearchRadiusKm(10.0);
-        user.setIsLookingForRoom(true);
-        user.setOnboardingCompleted(false);
-        user.setFcmToken(null);
-        user.setAccountStatus(AccountStatus.ACTIVE);
-        user.setIsActive(true);
-        user.setDisabledAt(null);
-        user.setDeletionRequestedAt(null);
-        user.setScheduledPurgeAt(null);
-        userRepository.save(user);
+        // 4. Hard-delete the row. ON DELETE CASCADE removes the user's conversations and every
+        //    chat message they sent or received, plus reports, notification preferences, etc.
+        userRepository.delete(user);
+        userRepository.flush();
 
-        log.info("Purged (reset-in-place) account {}", userId);
+        log.info("Permanently deleted account {} (Firebase user, chats and profile)", userId);
+    }
+
+    private void deleteFirebaseUser(String firebaseUid, UUID userId) {
+        if (firebaseUid == null || firebaseUid.isBlank()) return;
+        try {
+            firebaseAuth.deleteUser(firebaseUid);
+        } catch (FirebaseAuthException e) {
+            if (e.getAuthErrorCode() == AuthErrorCode.USER_NOT_FOUND) {
+                log.info("Firebase user for account {} already deleted", userId);
+                return;
+            }
+            throw new IllegalStateException(
+                    "Could not delete Firebase user for account " + userId + ": " + e.getMessage(), e);
+        }
     }
 }
