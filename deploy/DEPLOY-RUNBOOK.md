@@ -402,9 +402,9 @@ Ensure both are set to `no`.
 
 ---
 
-## Step E: Nginx Reverse Proxy Setup (Direct IP Mode)
+## Step E: Nginx Reverse Proxy Setup
 
-Since there is currently no domain name assigned, configure Nginx to proxy port 80 directly to `127.0.0.1:8080`:
+Configure Nginx to proxy port 80 directly to `127.0.0.1:8080` (this is the starting point; HTTPS is added in Step E2 below):
 
 ```bash
 sudo apt-get install -y nginx
@@ -446,12 +446,32 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
+### Step E2: HTTPS on `api.mateeazy.in` (done)
+
+The API is served over HTTPS at **`https://api.mateeazy.in`** (the mobile app and admin panel use this URL; Google Play requires HTTPS). Setup, for reference or for rebuilding the VM:
+
+1. **DNS (Cloudflare, zone `mateeazy.in`)**: `A` record `api` → the VM's public IP (`130.210.45.27`), proxy status **DNS only** (grey cloud) so Let's Encrypt's HTTP challenge and the `/ws-comments` WebSocket reach nginx directly.
+2. **Ports**: allow TCP **80 and 443** both in the OCI Security List and on the VM:
+   ```bash
+   sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+   sudo netfilter-persistent save
+   ```
+3. **nginx server name + certificate**:
+   ```bash
+   sudo sed -i 's/server_name _;/server_name api.mateeazy.in;/' /etc/nginx/sites-available/matchmate-backend
+   sudo nginx -t && sudo systemctl reload nginx
+   sudo apt-get install -y certbot python3-certbot-nginx
+   sudo certbot --nginx -d api.mateeazy.in --redirect -m support@mateeazy.in --agree-tos --no-eff-email
+   sudo certbot renew --dry-run
+   ```
+   Certbot edits the nginx site to listen on 443 and redirect HTTP to HTTPS, and installs a timer that renews the certificate (valid 90 days) automatically.
+4. **Verify**: `curl -i https://api.mateeazy.in/health` returns `200`; WebSocket clients connect to `wss://api.mateeazy.in/ws-comments` (the Upgrade headers in the nginx site above are unchanged).
+
 > [!NOTE]
-> When you assign a domain in the future, update `server_name yourdomain.com;` in `/etc/nginx/sites-available/matchmate-backend` and obtain a free SSL certificate with:
-> ```bash
-> sudo apt-get install -y certbot python3-certbot-nginx
-> sudo certbot --nginx -d yourdomain.com
-> ```
+> The raw IP (`http://130.210.45.27`) still answers because the nginx server block is also the `default_server`. That is deliberate so app builds that were already installed keep working. Once no client uses the IP any more, you can remove `default_server` and the IP stops serving the API.
+
+> [!IMPORTANT]
+> `CorsConfig` and `WebSocketConfig` currently allow any origin (`*`). That is fine for the mobile app. Once the admin panel has a fixed web address, restrict both to it.
 
 ---
 
