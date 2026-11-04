@@ -69,7 +69,7 @@ public class SearchPreferencesService {
                 .longitude(loc != null ? loc.getX() : 88.3639)
                 .locality(user.getTargetSearchLocality() != null ? user.getTargetSearchLocality() : user.getLastKnownLocality())
                 .searchRadiusKm(user.getSearchRadiusKm() != null ? user.getSearchRadiusKm() : 10.0)
-                .isLookingForRoom(user.getIsLookingForRoom() != null ? user.getIsLookingForRoom() : true)
+                .isLookingForRoom(user.getIsLookingForRoom() != null ? user.getIsLookingForRoom() : false)
                 .notifyRoomFinder(Boolean.TRUE.equals(prefs.getNotifyRoomsNearby()))
                 .notifyRoommateFinder(Boolean.TRUE.equals(prefs.getNotifySeekersNearby()))
                 .build();

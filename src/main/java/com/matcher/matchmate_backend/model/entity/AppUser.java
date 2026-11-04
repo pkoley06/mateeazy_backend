@@ -126,7 +126,7 @@ public class AppUser {
     /** Room Finder Mode. Push toggles live in {@link UserNotificationPreferences} since V12. */
     @Column(name = "is_looking_for_room", nullable = false)
     @Builder.Default
-    private Boolean isLookingForRoom = true;
+    private Boolean isLookingForRoom = false; // off until the user opts in
 
     /** Live chat presence mirror (V15). The in-memory {@code PresenceRegistry} is the live
      *  source of truth while the process is up; this column is only a durable snapshot for

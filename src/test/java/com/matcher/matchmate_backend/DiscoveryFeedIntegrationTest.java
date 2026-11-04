@@ -97,6 +97,17 @@ class DiscoveryFeedIntegrationTest {
         // Nearby but never finished onboarding -> must be excluded (BACKEND_PROGRESS.md: placeholder users).
         AppUser incompleteHost = userRepository.save(completeUser("incomplete-uid", "Incomplete Host", nearbyPoint(0.01, 0.01), false));
         listingRepository.save(listingFor(incompleteHost, nearbyPoint(0.01, 0.01)));
+
+        // Room Finder Mode on, searching ~5km away, no listing of their own -> appears as a NEED_ROOM
+        // person card under "All" and "Flatmates", never under "Rooms".
+        AppUser flatmate = completeUser("flatmate-uid", "Nearby Flatmate", nearbyPoint(0.3, 0.3), true);
+        flatmate.setIsLookingForRoom(true);
+        flatmate.setTargetSearchLocation(nearbyPoint(0.04, 0.04));
+        flatmate.setTargetSearchLocality("Park Street");
+        userRepository.save(flatmate);
+
+        // Room Finder Mode off -> a plain user with no listing never shows up.
+        userRepository.save(completeUser("lurker-uid", "Lurker", nearbyPoint(0.01, 0.01), true));
     }
 
     @Test
@@ -107,10 +118,46 @@ class DiscoveryFeedIntegrationTest {
                         .param("lng", String.valueOf(SEEKER_LNG))
                         .param("radiusKm", "10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                // Listing at ~3km sorts before the seeker searching ~6km away.
                 .andExpect(jsonPath("$.content[0].hostName").value("Near Host"))
+                .andExpect(jsonPath("$.content[0].listingType").value("HAVE_ROOM"))
+                .andExpect(jsonPath("$.content[0].listingId").isNotEmpty())
                 .andExpect(jsonPath("$.content[0].matchPercentage").value(100))
-                .andExpect(jsonPath("$.content[0].distanceKm").isNumber());
+                .andExpect(jsonPath("$.content[0].distanceKm").isNumber())
+                .andExpect(jsonPath("$.content[1].hostName").value("Nearby Flatmate"))
+                .andExpect(jsonPath("$.content[1].listingType").value("NEED_ROOM"))
+                .andExpect(jsonPath("$.content[1].listingId").isEmpty())
+                .andExpect(jsonPath("$.content[1].localityName").value("Park Street"))
+                .andExpect(jsonPath("$.content[1].rentAmount").isEmpty())
+                .andExpect(jsonPath("$.content[1].matchPercentage").value(100));
+    }
+
+    @Test
+    void roomsSegmentExcludesRoomFinderUsers() throws Exception {
+        mockMvc.perform(get("/api/v1/discovery")
+                        .header("Authorization", "Bearer " + seekerToken)
+                        .param("lat", String.valueOf(SEEKER_LAT))
+                        .param("lng", String.valueOf(SEEKER_LNG))
+                        .param("radiusKm", "10")
+                        .param("listingType", "HAVE_ROOM"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].hostName").value("Near Host"));
+    }
+
+    @Test
+    void flatmatesSegmentReturnsOnlyRoomFinderUsers() throws Exception {
+        mockMvc.perform(get("/api/v1/discovery")
+                        .header("Authorization", "Bearer " + seekerToken)
+                        .param("lat", String.valueOf(SEEKER_LAT))
+                        .param("lng", String.valueOf(SEEKER_LNG))
+                        .param("radiusKm", "10")
+                        .param("listingType", "NEED_ROOM"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].hostName").value("Nearby Flatmate"))
+                .andExpect(jsonPath("$.content[0].listingType").value("NEED_ROOM"));
     }
 
     @Test

@@ -5,8 +5,9 @@ import com.matcher.matchmate_backend.dto.response.DiscoveryFeedResponse;
 import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.Listing;
 import com.matcher.matchmate_backend.model.enums.auth.Gender;
+import com.matcher.matchmate_backend.model.enums.listing.ListingType;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
-import com.matcher.matchmate_backend.repository.ListingDistanceProjection;
+import com.matcher.matchmate_backend.repository.DiscoveryCandidateProjection;
 import com.matcher.matchmate_backend.repository.ListingRepository;
 import com.matcher.matchmate_backend.repository.UserBlockRepository;
 import org.springframework.http.HttpStatus;
@@ -15,8 +16,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -26,6 +28,13 @@ import java.util.UUID;
  * Milestone 4 Step 4.2: joins the spatial candidate query ({@link ListingRepository}) with
  * {@link MatchingHeuristicEngine} to assemble the paginated discovery feed. See
  * "MatchMate Technical Architecture.md" §6.4 for the API contract this implements.
+ * <p>
+ * The feed mixes two kinds of card, both ordered by distance:
+ * <ul>
+ *   <li>room listings ({@code listingType} = the listing's own type, {@code listingId} set), and</li>
+ *   <li>people in Room Finder Mode ({@code listingType} = {@code NEED_ROOM}, {@code listingId} null,
+ *       no rent/room fields). They surface under the "All" and "Flatmates" segments only.</li>
+ * </ul>
  */
 @Service
 public class DiscoveryService {
@@ -77,13 +86,17 @@ public class DiscoveryService {
         boolean smokingOnly = "NON_SMOKER_ONLY".equalsIgnoreCase(smokingParam);
         boolean dietOnly = "VEGETARIAN_ONLY".equalsIgnoreCase(dietParam);
         String listingType = normalizeListingType(listingTypeParam);
+        // Room Finder Mode users are "looking for a room", so they belong to the Flatmates segment
+        // (and to "All"); the Rooms segment stays listings-only.
+        boolean includeSeekers = listingType == null || ListingType.NEED_ROOM.name().equals(listingType);
 
-        List<ListingDistanceProjection> candidates = listingRepository.findCandidateIdsWithDistance(
+        List<DiscoveryCandidateProjection> candidates = listingRepository.findCandidateIdsWithDistance(
                 lat, lng, radiusMeters, currentUserId, gender, minAge, maxAge,
-                smokingOnly, dietOnly, minRent, maxRent, listingType, safeSize, safePage * safeSize);
+                smokingOnly, dietOnly, minRent, maxRent, listingType, includeSeekers,
+                safeSize, safePage * safeSize);
         long totalElements = listingRepository.countCandidates(
                 lat, lng, radiusMeters, currentUserId, gender, minAge, maxAge,
-                smokingOnly, dietOnly, minRent, maxRent, listingType);
+                smokingOnly, dietOnly, minRent, maxRent, listingType, includeSeekers);
 
         List<DiscoveryCardResponse> content = buildCards(seeker, candidates);
 
@@ -100,63 +113,114 @@ public class DiscoveryService {
                 .build();
     }
 
-    private List<DiscoveryCardResponse> buildCards(AppUser seeker, List<ListingDistanceProjection> candidates) {
+    private List<DiscoveryCardResponse> buildCards(AppUser viewer, List<DiscoveryCandidateProjection> candidates) {
         if (candidates.isEmpty()) return List.of();
 
-        // LinkedHashMap preserves the ASC-by-distance order the native query already returned.
-        Map<UUID, Double> distanceByListingId = new LinkedHashMap<>();
-        for (ListingDistanceProjection row : candidates) {
-            distanceByListingId.put(row.getListingId(), row.getDistanceKm());
-        }
-
-        List<Listing> listings = listingRepository.findAllWithHostByIdIn(List.copyOf(distanceByListingId.keySet()));
-        Map<UUID, Listing> listingById = new HashMap<>();
-        for (Listing listing : listings) {
-            listingById.put(listing.getId(), listing);
-        }
-
-        Set<UUID> blockedUserIds = new java.util.HashSet<>(blockRepository.findBlockedUserIdsByBlockerId(seeker.getId()));
-        // Blocking is mutual in effect: hosts who blocked the seeker must not see them either.
-        blockedUserIds.addAll(blockRepository.findBlockerIdsByBlockedId(seeker.getId()));
-
-        List<DiscoveryCardResponse> cards = new java.util.ArrayList<>();
-        for (Map.Entry<UUID, Double> entry : distanceByListingId.entrySet()) {
-            Listing listing = listingById.get(entry.getKey());
-            if (listing == null) continue; // deleted between the two queries; skip rather than fail the request
-
-            AppUser host = listing.getHostUser();
-            if (blockedUserIds.contains(host.getId()) ||
-                    Boolean.TRUE.equals(host.getIsSuspended()) ||
-                    !Boolean.TRUE.equals(host.getIsActive())) {
-                continue; // Skip listings from blocked, suspended, or deactivated users
+        List<UUID> listingIds = new ArrayList<>();
+        List<UUID> seekerIds = new ArrayList<>();
+        for (DiscoveryCandidateProjection row : candidates) {
+            if (DiscoveryCandidateProjection.KIND_SEEKER.equals(row.getKind())) {
+                seekerIds.add(row.getCandidateId());
+            } else {
+                listingIds.add(row.getCandidateId());
             }
-            int hostAge = Period.between(host.getDateOfBirth(), LocalDate.now()).getYears();
-            MatchingHeuristicEngine.MatchResult match = matchingEngine.evaluate(seeker, host);
+        }
 
-            cards.add(DiscoveryCardResponse.builder()
-                    .listingId(listing.getId())
-                    .title(listing.getTitle())
-                    .hostUserId(host.getId())
-                    .hostName(host.getFullName())
-                    .hostAge(hostAge)
-                    .hostGender(host.getGender())
-                    .occupationTitle(host.getOccupationTitle())
-                    .avatarUrl(host.getAvatarUrl())
-                    .listingType(listing.getListingType())
-                    .roomType(listing.getRoomType())
-                    .furnishingStatus(listing.getFurnishingStatus())
-                    .rentAmount(listing.getRentAmount())
-                    .depositAmount(listing.getDepositAmount())
-                    .localityName(listing.getLocalityName())
-                    .city(listing.getCity())
-                    .genderPreference(listing.getGenderPreference())
-                    .distanceKm(roundToOneDecimal(entry.getValue()))
-                    .matchPercentage(match.matchPercentage())
-                    .compatibilityHighlights(match.compatibilityHighlights())
-                    .photoUrls(listing.getPhotoUrls())
-                    .build());
+        Map<UUID, Listing> listingById = new HashMap<>();
+        if (!listingIds.isEmpty()) {
+            for (Listing listing : listingRepository.findAllWithHostByIdIn(listingIds)) {
+                listingById.put(listing.getId(), listing);
+            }
+        }
+        Map<UUID, AppUser> seekerById = new HashMap<>();
+        if (!seekerIds.isEmpty()) {
+            for (AppUser user : userRepository.findAllById(seekerIds)) {
+                seekerById.put(user.getId(), user);
+            }
+        }
+
+        Set<UUID> blockedUserIds = new HashSet<>(blockRepository.findBlockedUserIdsByBlockerId(viewer.getId()));
+        // Blocking is mutual in effect: people who blocked the viewer must not be shown to them either.
+        blockedUserIds.addAll(blockRepository.findBlockerIdsByBlockedId(viewer.getId()));
+
+        // Iterate the projection rows themselves so the ASC-by-distance order of the native query is kept
+        // across both kinds of card.
+        List<DiscoveryCardResponse> cards = new ArrayList<>();
+        for (DiscoveryCandidateProjection row : candidates) {
+            double distanceKm = roundToOneDecimal(row.getDistanceKm());
+            if (DiscoveryCandidateProjection.KIND_SEEKER.equals(row.getKind())) {
+                AppUser user = seekerById.get(row.getCandidateId());
+                if (user == null || !isVisible(user, blockedUserIds)) continue;
+                cards.add(seekerCard(viewer, user, distanceKm));
+            } else {
+                Listing listing = listingById.get(row.getCandidateId());
+                if (listing == null) continue; // deleted between the two queries; skip rather than fail the request
+                if (!isVisible(listing.getHostUser(), blockedUserIds)) continue;
+                cards.add(listingCard(viewer, listing, distanceKm));
+            }
         }
         return cards;
+    }
+
+    /** Skip cards from blocked, suspended, or deactivated users. */
+    private boolean isVisible(AppUser user, Set<UUID> blockedUserIds) {
+        return !blockedUserIds.contains(user.getId())
+                && !Boolean.TRUE.equals(user.getIsSuspended())
+                && Boolean.TRUE.equals(user.getIsActive());
+    }
+
+    private DiscoveryCardResponse listingCard(AppUser viewer, Listing listing, double distanceKm) {
+        AppUser host = listing.getHostUser();
+        MatchingHeuristicEngine.MatchResult match = matchingEngine.evaluate(viewer, host);
+        return personCard(host, match)
+                .listingId(listing.getId())
+                .title(listing.getTitle())
+                .listingType(listing.getListingType())
+                .roomType(listing.getRoomType())
+                .furnishingStatus(listing.getFurnishingStatus())
+                .rentAmount(listing.getRentAmount())
+                .depositAmount(listing.getDepositAmount())
+                .localityName(listing.getLocalityName())
+                .city(listing.getCity())
+                .genderPreference(listing.getGenderPreference())
+                .distanceKm(distanceKm)
+                .photoUrls(listing.getPhotoUrls())
+                .build();
+    }
+
+    /**
+     * A person in Room Finder Mode has no listing row: the card carries only who they are and
+     * where they are searching. {@code listingId} is null so clients route to the profile instead
+     * of a room detail page.
+     */
+    private DiscoveryCardResponse seekerCard(AppUser viewer, AppUser seeker, double distanceKm) {
+        MatchingHeuristicEngine.MatchResult match = matchingEngine.evaluate(viewer, seeker);
+        String locality = seeker.getTargetSearchLocality() != null && !seeker.getTargetSearchLocality().isBlank()
+                ? seeker.getTargetSearchLocality()
+                : seeker.getLastKnownLocality();
+        return personCard(seeker, match)
+                .listingId(null)
+                .title(null)
+                .listingType(ListingType.NEED_ROOM)
+                .localityName(locality != null && !locality.isBlank() ? locality : "Nearby")
+                .distanceKm(distanceKm)
+                .photoUrls(List.of())
+                .build();
+    }
+
+    /** Fields shared by both card kinds: the person on the card plus their match with the viewer. */
+    private DiscoveryCardResponse.DiscoveryCardResponseBuilder personCard(
+            AppUser person, MatchingHeuristicEngine.MatchResult match) {
+        int age = Period.between(person.getDateOfBirth(), LocalDate.now()).getYears();
+        return DiscoveryCardResponse.builder()
+                .hostUserId(person.getId())
+                .hostName(person.getFullName())
+                .hostAge(age)
+                .hostGender(person.getGender())
+                .occupationTitle(person.getOccupationTitle())
+                .avatarUrl(person.getAvatarUrl())
+                .matchPercentage(match.matchPercentage())
+                .compatibilityHighlights(match.compatibilityHighlights());
     }
 
     private double roundToOneDecimal(double value) {

@@ -302,7 +302,7 @@ public class UserService {
                 .profileStrength(computeProfileStrength(user))
                 .isProfileComplete(user.getOnboardingCompleted())
                 .missingLifestyleFields(missingLifestyleFields(user))
-                .isRoomSeeker(user.getIsLookingForRoom() != null ? user.getIsLookingForRoom() : Boolean.TRUE)
+                .isRoomSeeker(user.getIsLookingForRoom() != null ? user.getIsLookingForRoom() : Boolean.FALSE)
                 .build();
     }
 

@@ -13,14 +13,23 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 import java.util.UUID;
 
-/** One card in the discovery feed — see "MatchMate Technical Architecture.md" §6.4. */
+/**
+ * One card in the discovery feed — see "MatchMate Technical Architecture.md" §6.4.
+ * <p>
+ * Either a room listing or a person in Room Finder Mode. For a person, {@code listingType} is
+ * {@code NEED_ROOM} and {@code listingId}, {@code title}, {@code roomType}, {@code furnishingStatus},
+ * {@code rentAmount}, {@code depositAmount}, {@code city} and {@code genderPreference} are null;
+ * {@code hostUserId} is that person's user id.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class DiscoveryCardResponse {
+    /** Null for a Room Finder Mode card (no listing row exists). */
     private UUID listingId;
     private String title;
+    /** The host of the listing, or the person seeking a room. */
     private UUID hostUserId;
     private String hostName;
     private Integer hostAge;
