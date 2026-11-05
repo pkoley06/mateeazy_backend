@@ -307,8 +307,13 @@ public class ChatService {
                 .lastSeenAt(other.getLastSeenAt())
                 .build();
 
+        // The room card pinned in the thread: the other person's newest open room, so a host
+        // with several rooms shows exactly one (the latest). When they have none - the viewer
+        // is the host, or the room was since closed - fall back to the room the chat started from.
         ConversationListingSummary listingSummary = null;
-        Listing listing = conversation.getListing();
+        Listing listing = listingRepository
+                .findFirstByHostUserIdAndIsAvailableTrueOrderByCreatedAtDesc(other.getId())
+                .orElse(conversation.getListing());
         if (listing != null) {
             listingSummary = ConversationListingSummary.builder()
                     .id(listing.getId())

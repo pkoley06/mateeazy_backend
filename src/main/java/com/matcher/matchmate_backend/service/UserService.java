@@ -2,6 +2,7 @@ package com.matcher.matchmate_backend.service;
 
 
 import com.matcher.matchmate_backend.dto.request.DemographicsRequest;
+import com.matcher.matchmate_backend.dto.request.DeviceLocationRequest;
 import com.matcher.matchmate_backend.dto.request.LifestyleRequest;
 import com.matcher.matchmate_backend.dto.response.ListingResponse;
 import com.matcher.matchmate_backend.dto.response.OtherUserProfileResponse;
@@ -16,6 +17,9 @@ import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
 import com.matcher.matchmate_backend.storage.StorageService;
 import jakarta.transaction.Transactional;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -37,6 +41,10 @@ public class UserService {
      */
     private static final int BASE_PROFILE_STRENGTH = 40;
     private static final int POINTS_PER_LIFESTYLE_ANSWER = 12;
+
+    /** Width of {@code app_users.last_known_locality}. */
+    private static final int MAX_LOCALITY_LENGTH = 100;
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
 
     private final AppUserRepository userRepository;
     private final ListingRepository listingRepository;
@@ -147,6 +155,28 @@ public class UserService {
 
         AppUser updated = userRepository.save(user);
         return toProfileResponse(updated);
+    }
+
+    /**
+     * PUT /api/v1/users/me/location — the device's own position (never a searched place).
+     * Replaces the "Kolkata" default on {@code last_known_locality}, which is what other people
+     * see as this user's area and where a Room Finder Mode profile is placed until they pick a
+     * search area of their own.
+     */
+    @Transactional
+    public void updateDeviceLocation(UUID userId, DeviceLocationRequest request) {
+        AppUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        user.setLastKnownLocation(GEOMETRY_FACTORY.createPoint(
+                new Coordinate(request.getLongitude(), request.getLatitude())));
+        String locality = request.getLocality() != null ? request.getLocality().trim() : "";
+        if (!locality.isEmpty()) {
+            user.setLastKnownLocality(locality.length() > MAX_LOCALITY_LENGTH
+                    ? locality.substring(0, MAX_LOCALITY_LENGTH)
+                    : locality);
+        }
+        userRepository.save(user);
     }
 
     /** GET /api/v1/users/me — full profile, used by the Profile strength screen. */

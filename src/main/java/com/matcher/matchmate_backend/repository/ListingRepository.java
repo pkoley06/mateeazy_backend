@@ -8,11 +8,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ListingRepository extends JpaRepository<Listing, UUID> {
 
     List<Listing> findByHostUserId(UUID hostUserId);
+
+    /** The newest room a host still has open - the one a chat with them is about. */
+    Optional<Listing> findFirstByHostUserIdAndIsAvailableTrueOrderByCreatedAtDesc(UUID hostUserId);
     List<Listing> findByIsAvailableTrue();
     long countByIsAvailableTrue();
     List<Listing> findTop5ByOrderByCreatedAtDesc();

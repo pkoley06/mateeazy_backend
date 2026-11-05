@@ -21,6 +21,10 @@ public interface ListingLikeRepository extends JpaRepository<ListingLike, Listin
 
     long countByListingId(UUID listingId);
 
+    /** Which of {@code listingIds} the user has liked - one query for a whole feed page. */
+    @Query("SELECT l.listingId FROM ListingLike l WHERE l.userId = :userId AND l.listingId IN :listingIds")
+    List<UUID> findLikedListingIds(@Param("userId") UUID userId, @Param("listingIds") List<UUID> listingIds);
+
     @Query("SELECT l.listing FROM ListingLike l WHERE l.userId = :userId ORDER BY l.createdAt DESC")
     List<Listing> findLikedListingsByUserId(@Param("userId") UUID userId);
 

@@ -2,6 +2,7 @@ package com.matcher.matchmate_backend.controller;
 
 
 import com.matcher.matchmate_backend.dto.request.DemographicsRequest;
+import com.matcher.matchmate_backend.dto.request.DeviceLocationRequest;
 import com.matcher.matchmate_backend.dto.request.LifestyleRequest;
 import com.matcher.matchmate_backend.dto.request.RoomSeekerRequest;
 import com.matcher.matchmate_backend.dto.response.OtherUserProfileResponse;
@@ -49,6 +50,19 @@ public class UserController {
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
         return ResponseEntity.ok(userService.getMyProfile(principal.getUserId()));
+    }
+
+    /**
+     * The app reports where the device is once location access is granted, so the profile's
+     * home area is the user's real one instead of the "Kolkata" default.
+     */
+    @PutMapping("/me/location")
+    public ResponseEntity<Void> updateMyLocation(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @Valid @RequestBody DeviceLocationRequest request
+    ) {
+        userService.updateDeviceLocation(principal.getUserId(), request);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}")

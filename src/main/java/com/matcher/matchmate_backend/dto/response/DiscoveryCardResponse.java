@@ -49,4 +49,9 @@ public class DiscoveryCardResponse {
     private Integer matchPercentage;
     private List<String> compatibilityHighlights;
     private List<String> photoUrls;
+    /**
+     * Whether the viewer has liked this listing, so the feed's heart needs no request of its
+     * own per card. Null for a Room Finder Mode card (nothing to like).
+     */
+    private Boolean likedByMe;
 }

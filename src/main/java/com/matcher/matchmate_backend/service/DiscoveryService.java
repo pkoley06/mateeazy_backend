@@ -8,6 +8,7 @@ import com.matcher.matchmate_backend.model.enums.auth.Gender;
 import com.matcher.matchmate_backend.model.enums.listing.ListingType;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.repository.DiscoveryCandidateProjection;
+import com.matcher.matchmate_backend.repository.ListingLikeRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
 import com.matcher.matchmate_backend.repository.UserBlockRepository;
 import org.springframework.http.HttpStatus;
@@ -46,17 +47,20 @@ public class DiscoveryService {
     private final AppUserRepository userRepository;
     private final MatchingHeuristicEngine matchingEngine;
     private final UserBlockRepository blockRepository;
+    private final ListingLikeRepository likeRepository;
 
     public DiscoveryService(
             ListingRepository listingRepository,
             AppUserRepository userRepository,
             MatchingHeuristicEngine matchingEngine,
-            UserBlockRepository blockRepository
+            UserBlockRepository blockRepository,
+            ListingLikeRepository likeRepository
     ) {
         this.listingRepository = listingRepository;
         this.userRepository = userRepository;
         this.matchingEngine = matchingEngine;
         this.blockRepository = blockRepository;
+        this.likeRepository = likeRepository;
     }
 
     public DiscoveryFeedResponse getFeed(
@@ -132,6 +136,10 @@ public class DiscoveryService {
                 listingById.put(listing.getId(), listing);
             }
         }
+        // One query for the whole page, so the client never asks per card.
+        Set<UUID> likedListingIds = listingIds.isEmpty()
+                ? Set.of()
+                : new HashSet<>(likeRepository.findLikedListingIds(viewer.getId(), listingIds));
         Map<UUID, AppUser> seekerById = new HashMap<>();
         if (!seekerIds.isEmpty()) {
             for (AppUser user : userRepository.findAllById(seekerIds)) {
@@ -156,7 +164,7 @@ public class DiscoveryService {
                 Listing listing = listingById.get(row.getCandidateId());
                 if (listing == null) continue; // deleted between the two queries; skip rather than fail the request
                 if (!isVisible(listing.getHostUser(), blockedUserIds)) continue;
-                cards.add(listingCard(viewer, listing, distanceKm));
+                cards.add(listingCard(viewer, listing, distanceKm, likedListingIds.contains(listing.getId())));
             }
         }
         return cards;
@@ -169,7 +177,7 @@ public class DiscoveryService {
                 && Boolean.TRUE.equals(user.getIsActive());
     }
 
-    private DiscoveryCardResponse listingCard(AppUser viewer, Listing listing, double distanceKm) {
+    private DiscoveryCardResponse listingCard(AppUser viewer, Listing listing, double distanceKm, boolean likedByMe) {
         AppUser host = listing.getHostUser();
         MatchingHeuristicEngine.MatchResult match = matchingEngine.evaluate(viewer, host);
         return personCard(host, match)
@@ -185,6 +193,7 @@ public class DiscoveryService {
                 .genderPreference(listing.getGenderPreference())
                 .distanceKm(distanceKm)
                 .photoUrls(listing.getPhotoUrls())
+                .likedByMe(likedByMe)
                 .build();
     }
 
