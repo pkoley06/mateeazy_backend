@@ -46,6 +46,14 @@ public class AdminBrandingUpdateRequest {
 
     private String developerSupportNote;
 
+    /** Rupees prefilled in the payment app; 0 clears it (the payer types the amount). */
+    @jakarta.validation.constraints.Min(value = 0, message = "UPI amount cannot be negative")
+    @jakarta.validation.constraints.Max(value = 100000, message = "UPI amount cannot exceed 100000")
+    private Integer developerUpiAmount;
+
+    @Size(max = 80, message = "UPI payment note cannot exceed 80 characters")
+    private String developerUpiNote;
+
     @jakarta.validation.constraints.Min(value = 1, message = "Grace period must be at least 1 day")
     @jakarta.validation.constraints.Max(value = 365, message = "Grace period cannot exceed 365 days")
     private Integer deletionGracePeriodDays;

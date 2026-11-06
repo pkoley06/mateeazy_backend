@@ -8,6 +8,7 @@ import com.matcher.matchmate_backend.dto.response.PageResponse;
 import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.enums.auth.PrimaryAuthProvider;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
+import com.matcher.matchmate_backend.storage.StorageService;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,10 +27,16 @@ public class AdminUserService {
 
     private final AppUserRepository userRepository;
     private final NotificationPreferencesService preferencesService;
+    private final StorageService storageService;
 
-    public AdminUserService(AppUserRepository userRepository, NotificationPreferencesService preferencesService) {
+    public AdminUserService(
+            AppUserRepository userRepository,
+            NotificationPreferencesService preferencesService,
+            StorageService storageService
+    ) {
         this.userRepository = userRepository;
         this.preferencesService = preferencesService;
+        this.storageService = storageService;
     }
 
     public PageResponse<AdminUserSummaryResponse> list(String search, int page, int size) {
@@ -87,7 +94,11 @@ public class AdminUserService {
         }
         if (StringUtils.hasText(request.getFullName())) user.setFullName(request.getFullName());
         if (request.getGender() != null) user.setGender(request.getGender());
-        if (request.getAvatarUrl() != null) user.setAvatarUrl(request.getAvatarUrl());
+        // PATCH-style like the rest: absent = unchanged, blank = remove the photo.
+        String previousAvatarUrl = user.getAvatarUrl();
+        if (request.getAvatarUrl() != null) {
+            user.setAvatarUrl(StringUtils.hasText(request.getAvatarUrl()) ? request.getAvatarUrl().trim() : null);
+        }
         if (request.getOccupationCategory() != null) user.setOccupationCategory(request.getOccupationCategory());
         if (request.getOccupationTitle() != null) user.setOccupationTitle(request.getOccupationTitle());
         if (request.getBio() != null) user.setBio(request.getBio());
@@ -98,7 +109,14 @@ public class AdminUserService {
         if (request.getCleanlinessLevel() != null) user.setCleanlinessLevel(request.getCleanlinessLevel());
         if (request.getGuestTolerance() != null) user.setGuestTolerance(request.getGuestTolerance());
 
-        return toDetail(userRepository.save(user));
+        AdminUserDetailResponse response = toDetail(userRepository.save(user));
+        // Best-effort cleanup of the replaced photo; only ever touches objects in our own bucket.
+        if (previousAvatarUrl != null
+                && !previousAvatarUrl.equals(user.getAvatarUrl())
+                && storageService.isManagedUrl(previousAvatarUrl)) {
+            storageService.delete(previousAvatarUrl);
+        }
+        return response;
     }
 
     @Transactional
@@ -132,6 +150,7 @@ public class AdminUserService {
         return AdminUserSummaryResponse.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
+                .avatarUrl(user.getAvatarUrl())
                 .gender(user.getGender())
                 .age(Period.between(user.getDateOfBirth(), LocalDate.now()).getYears())
                 .lastKnownLocality(user.getLastKnownLocality())

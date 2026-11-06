@@ -44,6 +44,8 @@ public class AdminListingDetailResponse {
     /** Derived from {@link #genderPreference}. */
     private Boolean openToAllGenders;
     private Boolean isAvailable;
+    private long likesCount;
+    private long commentsCount;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

@@ -38,6 +38,11 @@ public class AdminBrandingService {
         if (request.getDeveloperUpiId() != null) branding.setDeveloperUpiId(blankToNull(request.getDeveloperUpiId()));
         if (request.getDeveloperQrCodeUrl() != null) branding.setDeveloperQrCodeUrl(blankToNull(request.getDeveloperQrCodeUrl()));
         if (request.getDeveloperSupportNote() != null) branding.setDeveloperSupportNote(blankToNull(request.getDeveloperSupportNote()));
+        if (request.getDeveloperUpiAmount() != null) {
+            // 0 is how the form says "no amount": stored as NULL, like a cleared text field.
+            branding.setDeveloperUpiAmount(request.getDeveloperUpiAmount() > 0 ? request.getDeveloperUpiAmount() : null);
+        }
+        if (request.getDeveloperUpiNote() != null) branding.setDeveloperUpiNote(blankToNull(request.getDeveloperUpiNote()));
         if (request.getDeletionGracePeriodDays() != null) branding.setDeletionGracePeriodDays(request.getDeletionGracePeriodDays());
 
         return toResponse(appBrandingRepository.save(branding));
@@ -85,6 +90,8 @@ public class AdminBrandingService {
                 .developerUpiId(branding.getDeveloperUpiId())
                 .developerQrCodeUrl(branding.getDeveloperQrCodeUrl())
                 .developerSupportNote(branding.getDeveloperSupportNote())
+                .developerUpiAmount(branding.getDeveloperUpiAmount())
+                .developerUpiNote(branding.getDeveloperUpiNote())
                 .deletionGracePeriodDays(branding.getDeletionGracePeriodDays())
                 .updatedAt(branding.getUpdatedAt())
                 .build();

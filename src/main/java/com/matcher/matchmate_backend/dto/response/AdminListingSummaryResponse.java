@@ -23,6 +23,7 @@ public class AdminListingSummaryResponse {
     private String title;
     private UUID hostUserId;
     private String hostUserName;
+    private String hostAvatarUrl;
     private ListingType listingType;
     private RoomType roomType;
     private FurnishingStatus furnishingStatus;

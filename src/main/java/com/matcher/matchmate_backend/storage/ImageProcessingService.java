@@ -91,6 +91,29 @@ public class ImageProcessingService {
         return result;
     }
 
+    /**
+     * Re-encodes {@code data} as a lossless PNG, scaled down only when its longest side exceeds
+     * {@code maxLongestSide}. For artwork that JPEG would damage: a logo (transparency) or a
+     * payment QR code (hard edges a scanner has to read).
+     */
+    public byte[] toPng(byte[] data, int maxLongestSide) {
+        BufferedImage image = decodeOrReject(data);
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            if (Math.max(image.getWidth(), image.getHeight()) > maxLongestSide) {
+                Thumbnails.of(image)
+                        .size(maxLongestSide, maxLongestSide)
+                        .outputFormat("png")
+                        .toOutputStream(out);
+            } else {
+                ImageIO.write(image, "png", out);
+            }
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not process image");
+        }
+    }
+
     private static long totalSize(List<byte[]> items) {
         long total = 0;
         for (byte[] item : items) total += item.length;

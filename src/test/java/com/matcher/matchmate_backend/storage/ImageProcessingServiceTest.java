@@ -44,6 +44,35 @@ class ImageProcessingServiceTest {
     }
 
     @Test
+    void toPngKeepsTransparencyAndSizeOfSmallArtwork() throws IOException {
+        BufferedImage logo = new BufferedImage(300, 200, BufferedImage.TYPE_INT_ARGB);
+        logo.setRGB(10, 10, 0xFFFF0000); // one opaque red pixel, the rest fully transparent
+
+        BufferedImage result = service.decodeOrReject(service.toPng(png(logo), 1024));
+
+        assertThat(result.getWidth()).isEqualTo(300);
+        assertThat(result.getHeight()).isEqualTo(200);
+        assertThat(result.getRGB(10, 10)).isEqualTo(0xFFFF0000);
+        assertThat(result.getRGB(0, 0) >>> 24).isZero(); // still transparent
+    }
+
+    @Test
+    void toPngScalesDownOversizedArtwork() throws IOException {
+        BufferedImage qr = new BufferedImage(3000, 1500, BufferedImage.TYPE_INT_RGB);
+
+        BufferedImage result = service.decodeOrReject(service.toPng(png(qr), 1024));
+
+        assertThat(result.getWidth()).isEqualTo(1024);
+        assertThat(result.getHeight()).isEqualTo(512);
+    }
+
+    private static byte[] png(BufferedImage image) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        return out.toByteArray();
+    }
+
+    @Test
     void rejectsDataThatIsNotAnImage() {
         byte[] garbage = "not an image".getBytes();
 

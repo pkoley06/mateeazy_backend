@@ -27,10 +27,11 @@ public class AdminListingController {
     public ResponseEntity<PageResponse<AdminListingSummaryResponse>> list(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Boolean available,
+            @RequestParam(required = false) UUID hostUserId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ResponseEntity.ok(adminListingService.list(search, available, page, size));
+        return ResponseEntity.ok(adminListingService.list(search, available, hostUserId, page, size));
     }
 
     @GetMapping("/{id}")

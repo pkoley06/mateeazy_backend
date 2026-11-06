@@ -19,6 +19,7 @@ import java.util.UUID;
 public class AdminUserSummaryResponse {
     private UUID id;
     private String fullName;
+    private String avatarUrl;
     private Gender gender;
     private Integer age;
     private String lastKnownLocality;

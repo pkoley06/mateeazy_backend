@@ -65,6 +65,14 @@ public class AppBranding {
     @Builder.Default
     private String developerSupportNote = "Made with ❤️ for flatmates everywhere. If MateEazy helped you find a home, buy the developer a coffee!";
 
+    /** Rupees prefilled in the payment app for "Buy me a coffee"; NULL leaves the amount blank. */
+    @Column(name = "developer_upi_amount")
+    private Integer developerUpiAmount;
+
+    /** Payment note handed to the UPI app; NULL uses the app's default wording. */
+    @Column(name = "developer_upi_note", length = 80)
+    private String developerUpiNote;
+
     /** Days a self-deleted account sits in PENDING_DELETION before AccountPurgeScheduler purges it. */
     @Column(name = "deletion_grace_period_days", nullable = false)
     @Builder.Default

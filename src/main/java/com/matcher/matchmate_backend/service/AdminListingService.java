@@ -9,7 +9,10 @@ import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.Listing;
 import com.matcher.matchmate_backend.model.enums.listing.GenderPreference;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
+import com.matcher.matchmate_backend.repository.ListingCommentRepository;
+import com.matcher.matchmate_backend.repository.ListingLikeRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
+import com.matcher.matchmate_backend.storage.StorageService;
 import jakarta.transaction.Transactional;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -24,6 +27,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -34,24 +38,36 @@ public class AdminListingService {
     private final ListingRepository listingRepository;
     private final AppUserRepository userRepository;
     private final NotificationService notificationService;
+    private final ListingLikeRepository likeRepository;
+    private final ListingCommentRepository commentRepository;
+    private final StorageService storageService;
 
     public AdminListingService(
             ListingRepository listingRepository,
             AppUserRepository userRepository,
-            NotificationService notificationService
+            NotificationService notificationService,
+            ListingLikeRepository likeRepository,
+            ListingCommentRepository commentRepository,
+            StorageService storageService
     ) {
         this.listingRepository = listingRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.likeRepository = likeRepository;
+        this.commentRepository = commentRepository;
+        this.storageService = storageService;
     }
 
-    public PageResponse<AdminListingSummaryResponse> list(String search, Boolean isAvailable, int page, int size) {
+    /** {@code hostUserId} narrows the list to one user's listings (the admin user-detail screen). */
+    public PageResponse<AdminListingSummaryResponse> list(
+            String search, Boolean isAvailable, UUID hostUserId, int page, int size
+    ) {
         int safePage = Math.max(0, page);
         int safeSize = Math.clamp(size, 1, 100);
         PageRequest pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         String query = StringUtils.hasText(search) ? search.trim() : null;
-        Page<Listing> result = listingRepository.searchAdminListings(query, isAvailable, pageable);
+        Page<Listing> result = listingRepository.searchAdminListings(query, isAvailable, hostUserId, pageable);
 
         return PageResponse.of(result, this::toSummary);
     }
@@ -109,7 +125,13 @@ public class AdminListingService {
         if (request.getStateName() != null) listing.setStateName(ListingService.trimToNull(request.getStateName()));
         if (request.getPostalCode() != null) listing.setPostalCode(ListingService.trimToNull(request.getPostalCode()));
         if (request.getDescription() != null) listing.setDescription(request.getDescription());
-        if (request.getPhotoUrls() != null) listing.setPhotoUrls(new ArrayList<>(request.getPhotoUrls()));
+        List<String> removedPhotoUrls = List.of();
+        if (request.getPhotoUrls() != null) {
+            removedPhotoUrls = listing.getPhotoUrls().stream()
+                    .filter(url -> !request.getPhotoUrls().contains(url))
+                    .toList();
+            listing.setPhotoUrls(new ArrayList<>(request.getPhotoUrls()));
+        }
         if (request.getMoveInDate() != null) listing.setMoveInDate(request.getMoveInDate());
         if (request.getAmenities() != null) listing.setAmenities(new ArrayList<>(request.getAmenities()));
         if (request.getGenderPreference() != null) {
@@ -119,24 +141,26 @@ public class AdminListingService {
         }
         if (request.getIsAvailable() != null) listing.setIsAvailable(request.getIsAvailable());
 
-        Listing saved = listingRepository.save(listing);
-        notificationService.notifyMatchingSeekersForNewListing(saved);
-        return toDetail(saved);
+        // No "new room nearby" push here: an edit is not a new listing (same as the owner's own edit).
+        AdminListingDetailResponse response = toDetail(listingRepository.save(listing));
+        // Best-effort cleanup of the photos just removed; only ever touches objects in our own bucket.
+        removedPhotoUrls.stream().filter(storageService::isManagedUrl).forEach(storageService::delete);
+        return response;
     }
 
     @Transactional
     public AdminListingDetailResponse setAvailable(UUID id, boolean available) {
         Listing listing = findListing(id);
         listing.setIsAvailable(available);
-        Listing saved = listingRepository.save(listing);
-        notificationService.notifyMatchingSeekersForNewListing(saved);
-        return toDetail(saved);
+        return toDetail(listingRepository.save(listing));
     }
 
     @Transactional
     public void delete(UUID id) {
         Listing listing = findListing(id);
+        List<String> photoUrls = new ArrayList<>(listing.getPhotoUrls());
         listingRepository.delete(listing);
+        photoUrls.stream().filter(storageService::isManagedUrl).forEach(storageService::delete);
     }
 
     private Listing findListing(UUID id) {
@@ -154,6 +178,7 @@ public class AdminListingService {
                 .title(listing.getTitle())
                 .hostUserId(listing.getHostUser().getId())
                 .hostUserName(listing.getHostUser().getFullName())
+                .hostAvatarUrl(listing.getHostUser().getAvatarUrl())
                 .listingType(listing.getListingType())
                 .roomType(listing.getRoomType())
                 .furnishingStatus(listing.getFurnishingStatus())
@@ -196,6 +221,8 @@ public class AdminListingService {
                 .genderPreference(listing.getGenderPreference())
                 .openToAllGenders(listing.isOpenToAllGenders())
                 .isAvailable(listing.getIsAvailable())
+                .likesCount(likeRepository.countByListingId(listing.getId()))
+                .commentsCount(commentRepository.countByListingId(listing.getId()))
                 .createdAt(listing.getCreatedAt())
                 .updatedAt(listing.getUpdatedAt())
                 .build();
