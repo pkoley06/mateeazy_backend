@@ -3,6 +3,9 @@ package com.matcher.matchmate_backend.service;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.AndroidNotification;
+import com.google.firebase.messaging.ApnsConfig;
+import com.google.firebase.messaging.Aps;
+import com.google.firebase.messaging.ApsAlert;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
@@ -16,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,10 +53,32 @@ public class NotificationService {
     }
 
     /**
+     * Tray tag of a conversation's card on Android: {@code chat_<conversationId>}. Chat pushes
+     * are data-only there, so the app assigns this tag itself when it draws the card and its
+     * native side matches on it to clear the conversation once read. Kept here so the two
+     * sides share one definition.
+     */
+    public static String chatNotificationTag(UUID conversationId) {
+        return "chat_" + conversationId;
+    }
+
+    /**
      * Sends an individual FCM push notification asynchronously.
      */
     @Async
     public void sendPush(String fcmToken, String title, String body, Map<String, String> data) {
+        sendPush(fcmToken, title, body, data, null, null);
+    }
+
+    /**
+     * As {@link #sendPush(String, String, String, Map)}, additionally stamping the tray entry
+     * with {@code tag} (Android notification tag) and {@code threadId} (APNs
+     * {@code thread-id}) so the app can find and dismiss it later.
+     */
+    @Async
+    public void sendPush(
+            String fcmToken, String title, String body, Map<String, String> data, String tag, String threadId
+    ) {
         if (fcmToken == null || fcmToken.isBlank()) return;
 
         if (FirebaseApp.getApps().isEmpty()) {
@@ -61,13 +87,16 @@ public class NotificationService {
         }
 
         try {
+            AndroidNotification.Builder androidNotification = AndroidNotification.builder()
+                    .setClickAction("FLUTTER_NOTIFICATION_CLICK")
+                    .setChannelId("mateeazy_matches")
+                    .setDefaultSound(true);
+            if (tag != null && !tag.isBlank()) {
+                androidNotification.setTag(tag);
+            }
             AndroidConfig androidConfig = AndroidConfig.builder()
                     .setPriority(AndroidConfig.Priority.HIGH)
-                    .setNotification(AndroidNotification.builder()
-                            .setClickAction("FLUTTER_NOTIFICATION_CLICK")
-                            .setChannelId("mateeazy_matches")
-                            .setDefaultSound(true)
-                            .build())
+                    .setNotification(androidNotification.build())
                     .build();
 
             Message.Builder builder = Message.builder()
@@ -77,6 +106,15 @@ public class NotificationService {
                             .setTitle(title)
                             .setBody(body)
                             .build());
+
+            if (threadId != null && !threadId.isBlank()) {
+                builder.setApnsConfig(ApnsConfig.builder()
+                        .setAps(Aps.builder()
+                                .setThreadId(threadId)
+                                .setSound("default")
+                                .build())
+                        .build());
+            }
 
             if (data != null && !data.isEmpty()) {
                 builder.putAllData(data);
@@ -256,13 +294,21 @@ public class NotificationService {
     }
 
     /**
-     * Someone sent the recipient a chat message. Called from {@code ChatEventListener} only
-     * when the recipient has no live presence session right now - if they're online they see
-     * it over the socket instead. Skipped when they muted "Messages".
+     * Someone sent the recipient a chat message. Called from {@code ChatEventListener} for
+     * every message; the app itself drops the banner when that conversation is on screen.
+     * Skipped when the recipient muted "Messages".
+     * <p>
+     * Nothing is persisted for this. On Android the push is <em>data-only</em>: the app's
+     * background handler draws one conversation-style tray card per sender (every unread
+     * message listed, with inline Reply / Mark as read) and clears it once the conversation
+     * is read. iOS gets a normal alert with {@code thread-id} = conversation, which the
+     * system groups by itself. The in-app "New message" entries come from the conversation's
+     * unread count, not from a stored notification.
      */
     @Async
     public void notifyRecipientOfChatMessage(
-            AppUser recipient, UUID conversationId, UUID senderId, String senderName, UUID messageId, String messageText
+            AppUser recipient, UUID conversationId, UUID senderId, String senderName, String senderAvatarUrl,
+            UUID messageId, String messageText, OffsetDateTime sentAt
     ) {
         if (recipient == null) return;
         if (recipient.getFcmToken() == null || recipient.getFcmToken().isBlank()) return;
@@ -272,10 +318,13 @@ public class NotificationService {
         }
 
         try {
-            String preview = messageText == null ? "" : messageText.trim();
-            if (preview.length() > 90) preview = preview.substring(0, 87) + "…";
+            String text = messageText == null ? "" : messageText.trim();
+            String preview = text.length() > 90 ? text.substring(0, 87) + "…" : text;
+            // The tray card shows the message itself, so it gets more than the alert line,
+            // still bounded (FCM data payloads cap at 4 KB).
+            String trayText = text.length() > 600 ? text.substring(0, 597) + "…" : text;
 
-            String title = "💬 " + senderName;
+            String title = senderName != null && !senderName.isBlank() ? senderName : "New message";
             String body = preview.isEmpty() ? "Sent you a message." : preview;
 
             Map<String, String> data = new HashMap<>();
@@ -283,15 +332,57 @@ public class NotificationService {
             data.put("conversation_id", String.valueOf(conversationId));
             data.put("sender_id", String.valueOf(senderId));
             data.put("sender_name", senderName != null ? senderName : "");
+            // The tray card shows the sender's photo; blank when they have none.
+            data.put("sender_avatar_url", senderAvatarUrl != null ? senderAvatarUrl : "");
             data.put("message_id", String.valueOf(messageId));
-            data.put("message_text", preview);
+            data.put("message_text", trayText);
+            data.put("sent_at", sentAt != null ? sentAt.toString() : OffsetDateTime.now().toString());
             data.put("route", "/chat/" + conversationId);
             data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
 
-            sendPush(recipient.getFcmToken(), title, body, data);
+            sendChatPush(recipient.getFcmToken(), title, body, data, String.valueOf(conversationId));
         } catch (Exception e) {
             log.error("[FCM] Error notifying user #{} about a chat message in conversation #{}: {}",
                     recipient.getId(), conversationId, e.getMessage());
+        }
+    }
+
+    /**
+     * Chat-specific dispatch: data-only with high priority on Android (so the app, not FCM,
+     * draws the tray card - see the app's {@code ChatTrayNotifications}), and an alert with
+     * {@code thread-id} on iOS.
+     */
+    @Async
+    public void sendChatPush(String fcmToken, String title, String body, Map<String, String> data, String threadId) {
+        if (fcmToken == null || fcmToken.isBlank()) return;
+
+        if (FirebaseApp.getApps().isEmpty()) {
+            log.info("[FCM] (Mock chat) To: {} | Title: {} | Body: {} | Data: {}", fcmToken, title, body, data);
+            return;
+        }
+
+        try {
+            Message message = Message.builder()
+                    .setToken(fcmToken)
+                    .putAllData(data)
+                    .setAndroidConfig(AndroidConfig.builder()
+                            .setPriority(AndroidConfig.Priority.HIGH)
+                            .build())
+                    .setApnsConfig(ApnsConfig.builder()
+                            .putHeader("apns-priority", "10")
+                            .setAps(Aps.builder()
+                                    .setAlert(ApsAlert.builder().setTitle(title).setBody(body).build())
+                                    .setThreadId(threadId)
+                                    .setCategory("CHAT_MESSAGE")
+                                    .setSound("default")
+                                    .build())
+                            .build())
+                    .build();
+
+            FirebaseMessaging.getInstance().sendAsync(message);
+            log.info("[FCM] Successfully queued chat push to token {} from '{}'", fcmToken, title);
+        } catch (Exception e) {
+            log.warn("[FCM] Failed to dispatch chat push: {}", e.getMessage());
         }
     }
 

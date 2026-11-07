@@ -84,7 +84,7 @@ public class ChatEventListener {
         if (recipient != null && sender != null) {
             notificationService.notifyRecipientOfChatMessage(
                     recipient, event.conversationId(), event.senderId(), sender.getFullName(),
-                    event.messageId(), event.content());
+                    sender.getAvatarUrl(), event.messageId(), event.content(), event.sentAt());
         }
     }
 
