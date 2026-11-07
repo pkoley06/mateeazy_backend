@@ -24,12 +24,32 @@ public enum GenderPreference {
      */
     public static GenderPreference fromLegacy(Boolean openToAllGenders, Gender hostGender) {
         if (openToAllGenders == null || openToAllGenders) return ALL;
-        if (hostGender == null) return ALL;
-        return switch (hostGender) {
+        return fromGender(hostGender);
+    }
+
+    /** The preference value that matches a person of {@code gender}; {@link #ALL} when unknown. */
+    public static GenderPreference fromGender(Gender gender) {
+        if (gender == null) return ALL;
+        return switch (gender) {
             case MALE -> MALE;
             case FEMALE -> FEMALE;
             case NON_BINARY -> NON_BINARY;
             case OTHERS -> OTHER;
         };
+    }
+
+    /**
+     * Room Finder Mode gender filter: what a seeker has chosen, falling back to their own
+     * gender when they never picked one. A listing is shown to the seeker when its
+     * {@code genderPreference} is {@link #ALL} or equals this value; {@link #ALL} here
+     * means "show me every room".
+     */
+    public static GenderPreference effectiveRoomFinderGender(GenderPreference chosen, Gender ownGender) {
+        return chosen != null ? chosen : fromGender(ownGender);
+    }
+
+    /** SQL-side form of {@link #effectiveRoomFinderGender}: null when no filtering applies. */
+    public static String sqlFilterValue(GenderPreference effective) {
+        return effective == null || effective == ALL ? null : effective.name();
     }
 }

@@ -26,9 +26,14 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * FCM dispatch. Every send is gated by the recipient's {@link UserNotificationPreferences}:
+ * Notification dispatch. Every send is gated by the recipient's {@link UserNotificationPreferences}:
  * the "nearby" fan-outs filter in SQL ({@code findMatchingSeekersForListing},
  * {@code findActiveListingsWithinRadius}); the one-to-one host alerts check in Java.
+ * <p>
+ * Comments, likes and matches are first <em>stored</em> in the user's inbox
+ * ({@link UserNotificationService}) and then pushed if they have a device token; the push
+ * carries the stored row's id as {@code notificationId} so the app can de-duplicate. Chat
+ * messages are push-only (the app derives those entries from unread counts).
  */
 @Service
 public class NotificationService {
@@ -39,17 +44,30 @@ public class NotificationService {
     private final ListingRepository listingRepository;
     private final MatchingHeuristicEngine matchingEngine;
     private final NotificationPreferencesService preferencesService;
+    private final UserNotificationService inboxService;
 
     public NotificationService(
             AppUserRepository userRepository,
             ListingRepository listingRepository,
             MatchingHeuristicEngine matchingEngine,
-            NotificationPreferencesService preferencesService
+            NotificationPreferencesService preferencesService,
+            UserNotificationService inboxService
     ) {
         this.userRepository = userRepository;
         this.listingRepository = listingRepository;
         this.matchingEngine = matchingEngine;
         this.preferencesService = preferencesService;
+        this.inboxService = inboxService;
+    }
+
+    /** Stores the notification, then pushes it (if the user has a token) with its id attached. */
+    private void storeAndPush(AppUser recipient, String title, String body, Map<String, String> data) {
+        UUID stored = inboxService.record(recipient.getId(), data.get("type"), title, body, data);
+        if (stored != null) {
+            data.put("notificationId", stored.toString());
+        }
+        if (recipient.getFcmToken() == null || recipient.getFcmToken().isBlank()) return;
+        sendPush(recipient.getFcmToken(), title, body, data);
     }
 
     /**
@@ -138,16 +156,18 @@ public class NotificationService {
         if (listing == null || listing.getLocation() == null || listing.getHostUser() == null) return;
 
         try {
+            String genderPreference = listing.getGenderPreference() != null
+                    ? listing.getGenderPreference().name()
+                    : "ALL";
             List<AppUser> matchingSeekers = userRepository.findMatchingSeekersForListing(
                     listing.getLocation(),
-                    listing.getHostUser().getId()
+                    listing.getHostUser().getId(),
+                    genderPreference
             );
 
             log.info("[FCM] Found {} matching seekers within radius for listing #{}", matchingSeekers.size(), listing.getId());
 
             for (AppUser seeker : matchingSeekers) {
-                if (seeker.getFcmToken() == null || seeker.getFcmToken().isBlank()) continue;
-
                 MatchingHeuristicEngine.MatchResult match = matchingEngine.evaluate(seeker, listing.getHostUser());
                 int matchPercent = (match != null && match.matchPercentage() != null)
                         ? match.matchPercentage()
@@ -170,7 +190,7 @@ public class NotificationService {
                 data.put("route", "/discover/room/" + listing.getId());
                 data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
 
-                sendPush(seeker.getFcmToken(), title, body, data);
+                storeAndPush(seeker, title, body, data);
             }
         } catch (Exception e) {
             log.error("[FCM] Error notifying seekers for listing #{}: {}", listing.getId(), e.getMessage());
@@ -188,9 +208,8 @@ public class NotificationService {
             AppUser host, UUID authorUserId, String authorName, String content
     ) {
         if (listingId == null || host == null) return;
-        if (host.getFcmToken() == null || host.getFcmToken().isBlank()) return;
         if (!preferencesService.allows(host.getId(), UserNotificationPreferences::getNotifyLikesComments)) {
-            log.debug("[FCM] Host #{} muted likes & comments; skipping comment push", host.getId());
+            log.debug("[FCM] Host #{} muted likes & comments; skipping comment alert", host.getId());
             return;
         }
 
@@ -208,7 +227,7 @@ public class NotificationService {
             data.put("route", "/discover/room/" + listingId);
             data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
 
-            sendPush(host.getFcmToken(), title, body, data);
+            storeAndPush(host, title, body, data);
         } catch (Exception e) {
             log.error("[FCM] Error notifying host #{} about a comment on listing #{}: {}",
                     host.getId(), listingId, e.getMessage());
@@ -222,7 +241,6 @@ public class NotificationService {
             AppUser host, UUID likerUserId, String likerName
     ) {
         if (listingId == null || host == null) return;
-        if (host.getFcmToken() == null || host.getFcmToken().isBlank()) return;
         if (!preferencesService.allows(host.getId(), UserNotificationPreferences::getNotifyLikesComments)) return;
 
         try {
@@ -236,7 +254,7 @@ public class NotificationService {
             data.put("route", "/users/" + likerUserId);
             data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
 
-            sendPush(host.getFcmToken(), title, body, data);
+            storeAndPush(host, title, body, data);
         } catch (Exception e) {
             log.error("[FCM] Error notifying host #{} about a like on listing #{}: {}",
                     host.getId(), listingId, e.getMessage());
@@ -259,7 +277,9 @@ public class NotificationService {
             List<Listing> nearbyListings = listingRepository.findActiveListingsWithinRadius(
                     seeker.getTargetSearchLocation(),
                     radiusMeters,
-                    seeker.getId()
+                    seeker.getId(),
+                    com.matcher.matchmate_backend.model.enums.listing.GenderPreference
+                            .sqlFilterValue(seeker.effectiveRoomFinderGender())
             );
 
             log.info("[FCM] Found {} active listings for seeker #{} search radius ({} km)",
@@ -267,7 +287,7 @@ public class NotificationService {
 
             for (Listing listing : nearbyListings) {
                 AppUser host = listing.getHostUser();
-                if (host == null || host.getFcmToken() == null || host.getFcmToken().isBlank()) continue;
+                if (host == null) continue;
 
                 MatchingHeuristicEngine.MatchResult match = matchingEngine.evaluate(seeker, host);
                 int matchPercent = (match != null && match.matchPercentage() != null)
@@ -286,7 +306,7 @@ public class NotificationService {
                 data.put("route", "/users/" + seeker.getId());
                 data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
 
-                sendPush(host.getFcmToken(), title, body, data);
+                storeAndPush(host, title, body, data);
             }
         } catch (Exception e) {
             log.error("[FCM] Error notifying hosts for seeker #{}: {}", seeker.getId(), e.getMessage());

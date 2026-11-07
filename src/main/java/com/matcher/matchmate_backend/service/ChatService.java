@@ -14,11 +14,13 @@ import com.matcher.matchmate_backend.model.entity.Conversation;
 import com.matcher.matchmate_backend.model.entity.Listing;
 import com.matcher.matchmate_backend.model.entity.Message;
 import com.matcher.matchmate_backend.model.enums.chat.MessageStatus;
+import com.matcher.matchmate_backend.model.enums.chat.MessageType;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.repository.ConversationRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
 import com.matcher.matchmate_backend.repository.MessageRepository;
 import com.matcher.matchmate_backend.repository.UserBlockRepository;
+import com.matcher.matchmate_backend.storage.StorageService;
 import com.matcher.matchmate_backend.websocket.PresenceRegistry;
 import jakarta.transaction.Transactional;
 import org.springframework.context.ApplicationEventPublisher;
@@ -59,6 +61,8 @@ public class ChatService {
     private final UserBlockRepository blockRepository;
     private final PresenceRegistry presenceRegistry;
     private final ApplicationEventPublisher eventPublisher;
+    private final StorageService storageService;
+    private final ChatMediaQuotaService mediaQuotaService;
 
     public ChatService(
             ConversationRepository conversationRepository,
@@ -67,7 +71,9 @@ public class ChatService {
             ListingRepository listingRepository,
             UserBlockRepository blockRepository,
             PresenceRegistry presenceRegistry,
-            ApplicationEventPublisher eventPublisher
+            ApplicationEventPublisher eventPublisher,
+            StorageService storageService,
+            ChatMediaQuotaService mediaQuotaService
     ) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
@@ -76,6 +82,8 @@ public class ChatService {
         this.blockRepository = blockRepository;
         this.presenceRegistry = presenceRegistry;
         this.eventPublisher = eventPublisher;
+        this.storageService = storageService;
+        this.mediaQuotaService = mediaQuotaService;
     }
 
     // ------------------------------------------------------------------ conversations
@@ -136,12 +144,30 @@ public class ChatService {
         return PageResponse.of(page, this::toMessageResponse);
     }
 
+    /** Older callers: a plain text message. */
     @Transactional
     public MessageResponse sendMessage(UUID conversationId, UUID senderId, String content) {
-        String trimmed = validateContent(content);
+        return sendMessage(conversationId, senderId, content, MessageType.TEXT, null);
+    }
+
+    /**
+     * Sends a TEXT, IMAGE (1-5 photos, counted against the daily quota) or GIF message.
+     * Attachment URLs must be ones this backend stored, except a GIF may also point at a
+     * Tenor CDN result handed out by {@code GifService}.
+     */
+    @Transactional
+    public MessageResponse sendMessage(
+            UUID conversationId, UUID senderId, String content, MessageType type, List<String> attachmentUrls
+    ) {
+        MessageType messageType = type == null ? MessageType.TEXT : type;
+        List<String> attachments = validateAttachments(messageType, attachmentUrls);
+        String trimmed = messageType.isMedia() ? validateCaption(content) : validateContent(content);
         Conversation conversation = loadConversation(conversationId);
         UUID recipientId = otherParticipantId(conversation, senderId);
         requireNotBlocked(senderId, recipientId);
+        if (messageType == MessageType.IMAGE) {
+            mediaQuotaService.requireAllowance(senderId, attachments.size());
+        }
 
         AppUser sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -156,6 +182,8 @@ public class ChatService {
                 .sender(sender)
                 .recipient(recipient)
                 .content(trimmed)
+                .messageType(messageType)
+                .attachmentUrls(new ArrayList<>(attachments))
                 .status(recipientOnline ? MessageStatus.DELIVERED : MessageStatus.SENT)
                 .deliveredAt(recipientOnline ? now : null)
                 .build();
@@ -167,9 +195,46 @@ public class ChatService {
 
         eventPublisher.publishEvent(new MessageSentEvent(
                 conversation.getId(), saved.getId(), senderId, recipientId,
-                trimmed, saved.getSentAt(), saved.getStatus()));
+                trimmed, messageType, List.copyOf(attachments), saved.getSentAt(), saved.getStatus()));
 
         return toMessageResponse(saved);
+    }
+
+    private List<String> validateAttachments(MessageType type, List<String> urls) {
+        List<String> cleaned = urls == null
+                ? List.of()
+                : urls.stream().filter(u -> u != null && !u.isBlank()).map(String::trim).toList();
+        switch (type) {
+            case TEXT -> {
+                if (!cleaned.isEmpty()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A text message cannot carry attachments");
+                }
+            }
+            case IMAGE -> {
+                if (cleaned.isEmpty()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pick at least one photo");
+                }
+                if (cleaned.size() > ChatMediaQuotaService.DAILY_PHOTO_LIMIT) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "At most " + ChatMediaQuotaService.DAILY_PHOTO_LIMIT + " photos per message");
+                }
+                for (String url : cleaned) {
+                    if (!storageService.isManagedUrl(url)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Photos must be uploaded through the app");
+                    }
+                }
+            }
+            case GIF -> {
+                if (cleaned.size() != 1) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A GIF message carries exactly one GIF");
+                }
+                String url = cleaned.get(0);
+                if (!storageService.isManagedUrl(url) && !GifService.isTrustedGifUrl(url)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That GIF link isn't allowed");
+                }
+            }
+        }
+        return cleaned;
     }
 
     @Transactional
@@ -292,6 +357,16 @@ public class ChatService {
         return trimmed;
     }
 
+    /** Media messages may carry an optional caption; it is stored in {@code content}. */
+    private static String validateCaption(String content) {
+        if (content == null || content.isBlank()) return "";
+        String trimmed = content.trim();
+        if (trimmed.length() > MAX_MESSAGE_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Caption cannot exceed " + MAX_MESSAGE_LENGTH + " characters");
+        }
+        return trimmed;
+    }
+
     // ------------------------------------------------------------------ mapping
 
     private ConversationSummaryResponse toSummary(Conversation conversation, UUID viewerUserId) {
@@ -330,6 +405,8 @@ public class ChatService {
             Message last = lastMessagePage.getContent().get(0);
             lastMessageSummary = LastMessageSummary.builder()
                     .content(last.getContent())
+                    .messageType(last.getMessageType())
+                    .attachmentCount(last.getAttachmentUrls() == null ? 0 : last.getAttachmentUrls().size())
                     .sentAt(last.getSentAt())
                     .status(last.getStatus())
                     .senderId(last.getSender().getId())
@@ -359,6 +436,8 @@ public class ChatService {
                 .senderId(m.getSender().getId())
                 .recipientId(m.getRecipient().getId())
                 .content(m.getContent())
+                .messageType(m.getMessageType() == null ? MessageType.TEXT : m.getMessageType())
+                .attachmentUrls(m.getAttachmentUrls() == null ? List.of() : List.copyOf(m.getAttachmentUrls()))
                 .status(m.getStatus())
                 .sentAt(m.getSentAt())
                 .deliveredAt(m.getDeliveredAt())

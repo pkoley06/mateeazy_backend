@@ -73,6 +73,8 @@ public class ListingService {
                 .moveInDate(request.getMoveInDate())
                 .amenities(request.getAmenities() != null ? new ArrayList<>(request.getAmenities()) : new ArrayList<>())
                 .genderPreference(resolveGenderPreference(request.getGenderPreference(), request.getOpenToAllGenders(), host))
+                .kitchenType(request.getKitchenType())
+                .washroomType(request.getWashroomType())
                 .isAvailable(true)
                 .build();
 
@@ -121,6 +123,8 @@ public class ListingService {
             listing.setGenderPreference(GenderPreference.fromLegacy(request.getOpenToAllGenders(), listing.getHostUser().getGender()));
         }
         if (request.getIsAvailable() != null) listing.setIsAvailable(request.getIsAvailable());
+        if (request.getKitchenType() != null) listing.setKitchenType(request.getKitchenType());
+        if (request.getWashroomType() != null) listing.setWashroomType(request.getWashroomType());
 
         ListingResponse response = toResponse(listingRepository.save(listing));
         // Best-effort cleanup of photos the owner just removed. Never fails the request.
@@ -225,6 +229,8 @@ public class ListingService {
                 .genderPreference(listing.getGenderPreference())
                 .openToAllGenders(listing.isOpenToAllGenders())
                 .isAvailable(listing.getIsAvailable())
+                .kitchenType(listing.getKitchenType())
+                .washroomType(listing.getWashroomType())
                 .createdAt(listing.getCreatedAt())
                 .updatedAt(listing.getUpdatedAt())
                 .hostName(hostName)

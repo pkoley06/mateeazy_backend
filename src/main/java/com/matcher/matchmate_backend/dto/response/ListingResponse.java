@@ -1,5 +1,6 @@
 package com.matcher.matchmate_backend.dto.response;
 
+import com.matcher.matchmate_backend.model.enums.listing.FacilitySharing;
 import com.matcher.matchmate_backend.model.enums.listing.FurnishingStatus;
 import com.matcher.matchmate_backend.model.enums.listing.GenderPreference;
 import com.matcher.matchmate_backend.model.enums.listing.ListingType;
@@ -46,6 +47,9 @@ public class ListingResponse {
     /** Derived from {@link #genderPreference}; kept so older clients keep working. */
     private Boolean openToAllGenders;
     private Boolean isAvailable;
+    /** SHARED / PRIVATE; null when the host never said. */
+    private FacilitySharing kitchenType;
+    private FacilitySharing washroomType;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 

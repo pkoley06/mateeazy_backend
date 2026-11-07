@@ -23,7 +23,12 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     /** Admin console user list search (by name) - see AdminUserService. */
     Page<AppUser> findByFullNameContainingIgnoreCase(String fullName, Pageable pageable);
 
-    /** Seekers near a new room who have "Rooms listed nearby" on (no preference row = on). */
+    /**
+     * Seekers near a new room who have "Rooms listed nearby" on (no preference row = on) and
+     * whose Room Finder gender filter admits the room: {@code genderPreference} is the room's
+     * value ('ALL' admits everyone); a seeker with no explicit filter falls back to their own
+     * gender. Seekers without a device token are included - the alert goes to their inbox.
+     */
     @Query(value = """
         SELECT u.* FROM app_users u
         LEFT JOIN user_notification_preferences p ON p.user_id = u.id
@@ -32,7 +37,13 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
           AND u.is_looking_for_room = true
           AND COALESCE(p.notify_rooms_nearby, true) = true
           AND u.id != :hostUserId
-          AND u.fcm_token IS NOT NULL
+          AND (
+                :genderPreference = 'ALL'
+                OR COALESCE(u.room_finder_gender,
+                            CASE u.gender WHEN 'OTHERS' THEN 'OTHER' ELSE u.gender END) = 'ALL'
+                OR COALESCE(u.room_finder_gender,
+                            CASE u.gender WHEN 'OTHERS' THEN 'OTHER' ELSE u.gender END) = :genderPreference
+          )
           AND ST_DWithin(
                 COALESCE(u.target_search_location, u.last_known_location),
                 :listingLocation,
@@ -41,7 +52,8 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
         """, nativeQuery = true)
     List<AppUser> findMatchingSeekersForListing(
         @Param("listingLocation") Point listingLocation,
-        @Param("hostUserId") UUID hostUserId
+        @Param("hostUserId") UUID hostUserId,
+        @Param("genderPreference") String genderPreference
     );
 
     long countByIsActiveTrue();

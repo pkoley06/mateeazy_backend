@@ -1,5 +1,6 @@
 package com.matcher.matchmate_backend.dto.request;
 
+import com.matcher.matchmate_backend.model.enums.listing.FacilitySharing;
 import com.matcher.matchmate_backend.model.enums.listing.FurnishingStatus;
 import com.matcher.matchmate_backend.model.enums.listing.GenderPreference;
 import com.matcher.matchmate_backend.model.enums.listing.ListingType;
@@ -76,4 +77,8 @@ public class ListingUpdateRequest {
     private Boolean openToAllGenders;
 
     private Boolean isAvailable;
+
+    private FacilitySharing kitchenType;
+
+    private FacilitySharing washroomType;
 }

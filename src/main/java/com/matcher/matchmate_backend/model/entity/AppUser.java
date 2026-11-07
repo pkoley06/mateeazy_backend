@@ -128,6 +128,20 @@ public class AppUser {
     @Builder.Default
     private Boolean isLookingForRoom = false; // off until the user opts in
 
+    /**
+     * Room Finder Mode gender filter (V19): only rooms whose {@code genderPreference} is ALL
+     * or equals this are shown / pushed while the mode is on. NULL = the user's own gender;
+     * ALL = no filtering. See {@link com.matcher.matchmate_backend.model.enums.listing.GenderPreference#effectiveRoomFinderGender}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "room_finder_gender", length = 20)
+    private com.matcher.matchmate_backend.model.enums.listing.GenderPreference roomFinderGender;
+
+    public com.matcher.matchmate_backend.model.enums.listing.GenderPreference effectiveRoomFinderGender() {
+        return com.matcher.matchmate_backend.model.enums.listing.GenderPreference
+                .effectiveRoomFinderGender(roomFinderGender, gender);
+    }
+
     /** Live chat presence mirror (V15). The in-memory {@code PresenceRegistry} is the live
      *  source of truth while the process is up; this column is only a durable snapshot for
      *  "last seen" after going offline and for surviving a restart. */

@@ -42,4 +42,6 @@ public class UserProfileResponse {
     private List<String> missingLifestyleFields;
     /** Discover header "Room seeker" toggle (persisted as app_users.is_looking_for_room). */
     private Boolean isRoomSeeker;
+    /** Effective Room Finder gender filter (never null: falls back to the user's own gender). */
+    private com.matcher.matchmate_backend.model.enums.listing.GenderPreference roomFinderGender;
 }

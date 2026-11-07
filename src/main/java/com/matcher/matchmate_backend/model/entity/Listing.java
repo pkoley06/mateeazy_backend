@@ -88,6 +88,16 @@ public class Listing {
     @Builder.Default
     private GenderPreference genderPreference = GenderPreference.ALL;
 
+    /** Shared or private kitchen (V19); null on rooms listed before the question existed. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kitchen_type", length = 20)
+    private FacilitySharing kitchenType;
+
+    /** Shared or private washroom (V19); null on rooms listed before the question existed. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "washroom_type", length = 20)
+    private FacilitySharing washroomType;
+
     @Column(name = "is_available", nullable = false)
     @Builder.Default
     private Boolean isAvailable = true;

@@ -53,6 +53,8 @@ public class ChatEventListener {
                 .senderId(event.senderId())
                 .recipientId(event.recipientId())
                 .content(event.content())
+                .messageType(event.messageType())
+                .attachmentUrls(event.attachmentUrls())
                 .status(event.status())
                 .sentAt(event.sentAt())
                 .deliveredAt(event.status() == MessageStatus.DELIVERED ? event.sentAt() : null)
@@ -84,7 +86,7 @@ public class ChatEventListener {
         if (recipient != null && sender != null) {
             notificationService.notifyRecipientOfChatMessage(
                     recipient, event.conversationId(), event.senderId(), sender.getFullName(),
-                    sender.getAvatarUrl(), event.messageId(), event.content(), event.sentAt());
+                    sender.getAvatarUrl(), event.messageId(), event.previewText(), event.sentAt());
         }
     }
 

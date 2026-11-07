@@ -92,3 +92,9 @@ app:
     local-dir: ${STORAGE_LOCAL_DIR:./uploads}
     max-profile-photo-bytes: ${STORAGE_MAX_PROFILE_PHOTO_BYTES:204800}
     max-listing-photos-total-bytes: ${STORAGE_MAX_LISTING_PHOTOS_TOTAL_BYTES:2097152}
+    # Gallery GIFs sent in chat are stored unchanged (re-encoding drops the animation).
+    max-chat-gif-bytes: ${STORAGE_MAX_CHAT_GIF_BYTES:5242880}
+  gifs:
+    # Tenor v2 key for the chat GIF picker (https://developers.google.com/tenor). Blank
+    # disables the picker: GET /api/v1/gifs/status reports enabled=false and the app hides it.
+    tenor-api-key: ${TENOR_API_KEY:}

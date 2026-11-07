@@ -1,11 +1,14 @@
 package com.matcher.matchmate_backend.model.entity;
 
 import com.matcher.matchmate_backend.model.enums.chat.MessageStatus;
+import com.matcher.matchmate_backend.model.enums.chat.MessageType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /** One message within a {@link Conversation}, with the SENT -> DELIVERED -> READ lifecycle (V15). */
@@ -33,8 +36,19 @@ public class Message {
     @JoinColumn(name = "recipient_id", nullable = false)
     private AppUser recipient;
 
+    /** The text; empty string for an IMAGE / GIF message. */
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", nullable = false, length = 20)
+    @Builder.Default
+    private MessageType messageType = MessageType.TEXT;
+
+    /** Photo URLs of an IMAGE message (1-5, sent together) or the single URL of a GIF. */
+    @Column(name = "attachment_urls", nullable = false, columnDefinition = "text[]")
+    @Builder.Default
+    private List<String> attachmentUrls = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)

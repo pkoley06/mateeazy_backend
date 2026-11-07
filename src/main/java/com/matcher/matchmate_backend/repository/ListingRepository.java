@@ -21,7 +21,11 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
     long countByIsAvailableTrue();
     List<Listing> findTop5ByOrderByCreatedAtDesc();
 
-    /** Rooms near a seeker whose hosts have "Room seekers nearby" on (no preference row = on). */
+    /**
+     * Rooms near a seeker whose hosts have "Room seekers nearby" on (no preference row = on)
+     * and whose gender preference admits the seeker ({@code seekerGender} null = no filter).
+     * Hosts without a device token are included: the alert is stored in their inbox.
+     */
     @Query(value = """
         SELECT l.* FROM listings l
         JOIN app_users h ON l.host_user_id = h.id
@@ -31,7 +35,8 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
           AND h.is_suspended = false
           AND COALESCE(p.notify_seekers_nearby, true) = true
           AND h.id != :seekerUserId
-          AND h.fcm_token IS NOT NULL
+          AND (:seekerGender IS NULL OR l.gender_preference IS NULL
+               OR l.gender_preference = 'ALL' OR l.gender_preference = :seekerGender)
           AND ST_DWithin(
                 l.location,
                 :seekerLocation,
@@ -41,7 +46,8 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
     List<Listing> findActiveListingsWithinRadius(
         @Param("seekerLocation") org.locationtech.jts.geom.Point seekerLocation,
         @Param("radiusMeters") double radiusMeters,
-        @Param("seekerUserId") UUID seekerUserId
+        @Param("seekerUserId") UUID seekerUserId,
+        @Param("seekerGender") String seekerGender
     );
 
     /**
@@ -102,6 +108,8 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
                           AND (:minRent IS NULL OR l.rent_amount >= :minRent)
                           AND (:maxRent IS NULL OR l.rent_amount <= :maxRent)
                           AND (:listingType IS NULL OR l.listing_type = :listingType)
+                          AND (:seekerGender IS NULL OR l.gender_preference IS NULL
+                               OR l.gender_preference = 'ALL' OR l.gender_preference = :seekerGender)
                         UNION ALL
                         SELECT 'SEEKER' AS kind,
                                u.id AS candidate_id,
@@ -141,6 +149,7 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
             @Param("maxRent") Integer maxRent,
             @Param("listingType") String listingType,
             @Param("includeSeekers") boolean includeSeekers,
+            @Param("seekerGender") String seekerGender,
             @Param("limit") int limit,
             @Param("offset") int offset);
 
@@ -165,6 +174,8 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
                           AND (:minRent IS NULL OR l.rent_amount >= :minRent)
                           AND (:maxRent IS NULL OR l.rent_amount <= :maxRent)
                           AND (:listingType IS NULL OR l.listing_type = :listingType)
+                          AND (:seekerGender IS NULL OR l.gender_preference IS NULL
+                               OR l.gender_preference = 'ALL' OR l.gender_preference = :seekerGender)
                     ) + (
                         SELECT COUNT(*)
                         FROM app_users u
@@ -198,7 +209,8 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
             @Param("minRent") Integer minRent,
             @Param("maxRent") Integer maxRent,
             @Param("listingType") String listingType,
-            @Param("includeSeekers") boolean includeSeekers);
+            @Param("includeSeekers") boolean includeSeekers,
+            @Param("seekerGender") String seekerGender);
 
     /** Loads full entities (with the host fetched eagerly) for a page of candidate IDs. */
     @Query("SELECT l FROM Listing l JOIN FETCH l.hostUser WHERE l.id IN :ids")

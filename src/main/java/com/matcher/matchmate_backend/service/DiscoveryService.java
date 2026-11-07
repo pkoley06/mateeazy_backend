@@ -5,6 +5,7 @@ import com.matcher.matchmate_backend.dto.response.DiscoveryFeedResponse;
 import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.Listing;
 import com.matcher.matchmate_backend.model.enums.auth.Gender;
+import com.matcher.matchmate_backend.model.enums.listing.GenderPreference;
 import com.matcher.matchmate_backend.model.enums.listing.ListingType;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.repository.DiscoveryCandidateProjection;
@@ -94,13 +95,18 @@ public class DiscoveryService {
         // (and to "All"); the Rooms segment stays listings-only.
         boolean includeSeekers = listingType == null || ListingType.NEED_ROOM.name().equals(listingType);
 
+        // Room Finder Mode: only rooms open to the seeker's (chosen or own) gender. Off = no filter.
+        String seekerGender = Boolean.TRUE.equals(seeker.getIsLookingForRoom())
+                ? GenderPreference.sqlFilterValue(seeker.effectiveRoomFinderGender())
+                : null;
+
         List<DiscoveryCandidateProjection> candidates = listingRepository.findCandidateIdsWithDistance(
                 lat, lng, radiusMeters, currentUserId, gender, minAge, maxAge,
-                smokingOnly, dietOnly, minRent, maxRent, listingType, includeSeekers,
+                smokingOnly, dietOnly, minRent, maxRent, listingType, includeSeekers, seekerGender,
                 safeSize, safePage * safeSize);
         long totalElements = listingRepository.countCandidates(
                 lat, lng, radiusMeters, currentUserId, gender, minAge, maxAge,
-                smokingOnly, dietOnly, minRent, maxRent, listingType, includeSeekers);
+                smokingOnly, dietOnly, minRent, maxRent, listingType, includeSeekers, seekerGender);
 
         List<DiscoveryCardResponse> content = buildCards(seeker, candidates);
 

@@ -70,13 +70,17 @@ public class UserController {
         return ResponseEntity.ok(userService.getOtherUserProfile(id));
     }
 
-    /** Discover header toggle: body {@code {"is_room_seeker": true|false}}. */
+    /**
+     * Room Finder Mode: body {@code {"is_room_seeker": true|false}} and/or
+     * {@code {"room_finder_gender": "ALL"|"MALE"|"FEMALE"|"NON_BINARY"|"OTHER"}}.
+     */
     @PatchMapping("/me/room-seeker")
     public ResponseEntity<UserProfileResponse> updateRoomSeeker(
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             @Valid @RequestBody RoomSeekerRequest request
     ) {
-        return ResponseEntity.ok(userService.updateRoomSeeker(principal.getUserId(), request.getIsRoomSeeker()));
+        return ResponseEntity.ok(userService.updateRoomSeeker(
+                principal.getUserId(), request.getIsRoomSeeker(), request.getRoomFinderGender()));
     }
 
     /**

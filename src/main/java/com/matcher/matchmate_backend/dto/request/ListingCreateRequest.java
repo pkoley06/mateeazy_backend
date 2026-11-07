@@ -1,5 +1,6 @@
 package com.matcher.matchmate_backend.dto.request;
 
+import com.matcher.matchmate_backend.model.enums.listing.FacilitySharing;
 import com.matcher.matchmate_backend.model.enums.listing.FurnishingStatus;
 import com.matcher.matchmate_backend.model.enums.listing.GenderPreference;
 import com.matcher.matchmate_backend.model.enums.listing.ListingType;
@@ -86,4 +87,10 @@ public class ListingCreateRequest {
 
     /** Legacy flag kept for older clients; ignored when {@link #genderPreference} is sent. */
     private Boolean openToAllGenders;
+
+    /** SHARED / PRIVATE kitchen; optional. */
+    private FacilitySharing kitchenType;
+
+    /** SHARED / PRIVATE washroom; optional. */
+    private FacilitySharing washroomType;
 }

@@ -74,13 +74,24 @@ public class UserService {
      * re-runs the "new seeker" host alerts when the user already has a search area set.
      */
     @Transactional
-    public UserProfileResponse updateRoomSeeker(UUID userId, boolean isRoomSeeker) {
+    public UserProfileResponse updateRoomSeeker(
+            UUID userId, Boolean isRoomSeeker, com.matcher.matchmate_backend.model.enums.listing.GenderPreference roomFinderGender
+    ) {
+        if (isRoomSeeker == null && roomFinderGender == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "is_room_seeker or room_finder_gender is required");
+        }
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         boolean wasSeeker = Boolean.TRUE.equals(user.getIsLookingForRoom());
-        user.setIsLookingForRoom(isRoomSeeker);
+        if (isRoomSeeker != null) {
+            user.setIsLookingForRoom(isRoomSeeker);
+        }
+        if (roomFinderGender != null) {
+            user.setRoomFinderGender(roomFinderGender);
+        }
         AppUser saved = userRepository.save(user);
-        if (isRoomSeeker && !wasSeeker && saved.getTargetSearchLocation() != null) {
+        boolean turnedOn = Boolean.TRUE.equals(isRoomSeeker) && !wasSeeker;
+        if (turnedOn && saved.getTargetSearchLocation() != null) {
             notificationService.notifyHostsForNewSeeker(saved);
         }
         return toProfileResponse(saved);
@@ -333,6 +344,7 @@ public class UserService {
                 .isProfileComplete(user.getOnboardingCompleted())
                 .missingLifestyleFields(missingLifestyleFields(user))
                 .isRoomSeeker(user.getIsLookingForRoom() != null ? user.getIsLookingForRoom() : Boolean.FALSE)
+                .roomFinderGender(user.effectiveRoomFinderGender())
                 .build();
     }
 
