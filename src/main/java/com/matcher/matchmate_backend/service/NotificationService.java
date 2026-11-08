@@ -117,6 +117,8 @@ public class NotificationService {
         }
 
         try {
+            String imageUrl = (data != null && data.containsKey("imageUrl")) ? data.get("imageUrl") : null;
+
             AndroidNotification.Builder androidNotification = AndroidNotification.builder()
                     .setClickAction("FLUTTER_NOTIFICATION_CLICK")
                     .setChannelId("mateeazy_matches")
@@ -124,18 +126,25 @@ public class NotificationService {
             if (tag != null && !tag.isBlank()) {
                 androidNotification.setTag(tag);
             }
+            if (imageUrl != null && !imageUrl.isBlank()) {
+                androidNotification.setImage(imageUrl);
+            }
             AndroidConfig androidConfig = AndroidConfig.builder()
                     .setPriority(AndroidConfig.Priority.HIGH)
                     .setNotification(androidNotification.build())
                     .build();
 
+            Notification.Builder notificationBuilder = Notification.builder()
+                    .setTitle(title)
+                    .setBody(body);
+            if (imageUrl != null && !imageUrl.isBlank()) {
+                notificationBuilder.setImage(imageUrl);
+            }
+
             Message.Builder builder = Message.builder()
                     .setToken(fcmToken)
                     .setAndroidConfig(androidConfig)
-                    .setNotification(Notification.builder()
-                            .setTitle(title)
-                            .setBody(body)
-                            .build());
+                    .setNotification(notificationBuilder.build());
 
             if (threadId != null && !threadId.isBlank()) {
                 builder.setApnsConfig(ApnsConfig.builder()

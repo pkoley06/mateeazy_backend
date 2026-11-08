@@ -20,6 +20,8 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     Optional<AppUser> findByFirebaseUid(String firebaseUid);
     boolean existsByFirebaseUid(String firebaseUid);
 
+    List<AppUser> findByIsActiveTrueAndIsSuspendedFalse();
+
     /** Admin console user list search (by name) - see AdminUserService. */
     Page<AppUser> findByFullNameContainingIgnoreCase(String fullName, Pageable pageable);
 
