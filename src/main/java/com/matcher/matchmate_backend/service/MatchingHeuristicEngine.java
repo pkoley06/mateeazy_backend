@@ -27,12 +27,16 @@ public class MatchingHeuristicEngine {
             WEIGHT_CLEANLINESS + WEIGHT_SLEEP + WEIGHT_GUEST + WEIGHT_DIET; // 5.7
 
     public record MatchResult(Integer matchPercentage, List<String> compatibilityHighlights) {
-        static MatchResult incomplete() {
+        public static MatchResult incomplete() {
             return new MatchResult(null, List.of());
         }
 
-        static MatchResult disqualified() {
+        public static MatchResult disqualified() {
             return new MatchResult(0, List.of());
+        }
+
+        public boolean isDisqualified() {
+            return matchPercentage != null && matchPercentage == 0;
         }
     }
 
@@ -42,8 +46,8 @@ public class MatchingHeuristicEngine {
             return MatchResult.incomplete();
         }
 
-        if (seeker.getSmokingHabit() == SmokingHabit.NON_SMOKER
-                && candidate.getSmokingHabit() == SmokingHabit.REGULAR_SMOKER) {
+        if ((seeker.getSmokingHabit() == SmokingHabit.NON_SMOKER && candidate.getSmokingHabit() == SmokingHabit.REGULAR_SMOKER)
+                || (candidate.getSmokingHabit() == SmokingHabit.NON_SMOKER && seeker.getSmokingHabit() == SmokingHabit.REGULAR_SMOKER)) {
             return MatchResult.disqualified();
         }
 

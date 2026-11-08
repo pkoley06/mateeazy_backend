@@ -16,6 +16,7 @@ import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -45,19 +46,22 @@ public class NotificationService {
     private final MatchingHeuristicEngine matchingEngine;
     private final NotificationPreferencesService preferencesService;
     private final UserNotificationService inboxService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public NotificationService(
             AppUserRepository userRepository,
             ListingRepository listingRepository,
             MatchingHeuristicEngine matchingEngine,
             NotificationPreferencesService preferencesService,
-            UserNotificationService inboxService
+            UserNotificationService inboxService,
+            SimpMessagingTemplate messagingTemplate
     ) {
         this.userRepository = userRepository;
         this.listingRepository = listingRepository;
         this.matchingEngine = matchingEngine;
         this.preferencesService = preferencesService;
         this.inboxService = inboxService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     /** Stores the notification, then pushes it (if the user has a token) with its id attached. */
@@ -65,6 +69,14 @@ public class NotificationService {
         UUID stored = inboxService.record(recipient.getId(), data.get("type"), title, body, data);
         if (stored != null) {
             data.put("notificationId", stored.toString());
+        }
+        try {
+            Map<String, Object> wsPayload = new HashMap<>(data);
+            wsPayload.put("title", title);
+            wsPayload.put("body", body);
+            messagingTemplate.convertAndSendToUser(recipient.getId().toString(), "/queue/notifications", wsPayload);
+        } catch (Exception e) {
+            log.debug("[WebSocket] Could not push notification to user #{}: {}", recipient.getId(), e.getMessage());
         }
         if (recipient.getFcmToken() == null || recipient.getFcmToken().isBlank()) return;
         sendPush(recipient.getFcmToken(), title, body, data);
@@ -169,9 +181,20 @@ public class NotificationService {
 
             for (AppUser seeker : matchingSeekers) {
                 MatchingHeuristicEngine.MatchResult match = matchingEngine.evaluate(seeker, listing.getHostUser());
+                if (match != null && match.isDisqualified()) {
+                    log.info("[Match] Skipping seeker #{} for listing #{}: disqualified by lifestyle dealbreaker",
+                            seeker.getId(), listing.getId());
+                    continue;
+                }
                 int matchPercent = (match != null && match.matchPercentage() != null)
                         ? match.matchPercentage()
                         : 85;
+
+                if (matchPercent < 50) {
+                    log.info("[Match] Skipping seeker #{} for listing #{}: match percentage ({}%) below threshold",
+                            seeker.getId(), listing.getId(), matchPercent);
+                    continue;
+                }
 
                 String roomTypeStr = listing.getRoomType() != null
                         ? listing.getRoomType().name().replace('_', ' ')
@@ -290,9 +313,20 @@ public class NotificationService {
                 if (host == null) continue;
 
                 MatchingHeuristicEngine.MatchResult match = matchingEngine.evaluate(seeker, host);
+                if (match != null && match.isDisqualified()) {
+                    log.info("[Match] Skipping host #{} for seeker #{}: disqualified by lifestyle dealbreaker",
+                            host.getId(), seeker.getId());
+                    continue;
+                }
                 int matchPercent = (match != null && match.matchPercentage() != null)
                         ? match.matchPercentage()
                         : 85;
+
+                if (matchPercent < 50) {
+                    log.info("[Match] Skipping host #{} for seeker #{}: match percentage ({}%) below threshold",
+                            host.getId(), seeker.getId(), matchPercent);
+                    continue;
+                }
 
                 String title = "👋 New Roommate Match! (" + matchPercent + "% Match)";
                 String body = seeker.getFullName() + " is looking for a room in your area ("
