@@ -44,6 +44,7 @@ public class AdminBrandingService {
         }
         if (request.getDeveloperUpiNote() != null) branding.setDeveloperUpiNote(blankToNull(request.getDeveloperUpiNote()));
         if (request.getDeletionGracePeriodDays() != null) branding.setDeletionGracePeriodDays(request.getDeletionGracePeriodDays());
+        if (request.getActiveIcon() != null) branding.setActiveIcon(blankToNull(request.getActiveIcon()));
 
         return toResponse(appBrandingRepository.save(branding));
     }
@@ -69,6 +70,7 @@ public class AdminBrandingService {
                     .developerUpiId("mateeazy.dev@upi")
                     .developerSupportNote("Made with ❤️ for flatmates everywhere. If MateEazy helped you find a home, buy the developer a coffee!")
                     .deletionGracePeriodDays(30)
+                    .activeIcon("default")
                     .build();
             return appBrandingRepository.save(defaults);
         });
@@ -93,6 +95,7 @@ public class AdminBrandingService {
                 .developerUpiAmount(branding.getDeveloperUpiAmount())
                 .developerUpiNote(branding.getDeveloperUpiNote())
                 .deletionGracePeriodDays(branding.getDeletionGracePeriodDays())
+                .activeIcon(branding.getActiveIcon() != null ? branding.getActiveIcon() : "default")
                 .updatedAt(branding.getUpdatedAt())
                 .build();
     }

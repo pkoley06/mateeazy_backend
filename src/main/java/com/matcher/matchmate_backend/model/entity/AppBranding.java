@@ -78,6 +78,11 @@ public class AppBranding {
     @Builder.Default
     private Integer deletionGracePeriodDays = 30;
 
+    /** Active dynamic launcher icon name (e.g. "default", "diwali"). */
+    @Column(name = "active_icon", length = 50)
+    @Builder.Default
+    private String activeIcon = "default";
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;

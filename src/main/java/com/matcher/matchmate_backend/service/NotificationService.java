@@ -212,6 +212,8 @@ public class NotificationService {
                 data.put("locality", listing.getLocalityName() != null ? listing.getLocalityName() : "");
                 data.put("route", "/discover/room/" + listing.getId());
                 data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
+                data.put("title", title);
+                data.put("body", body);
 
                 storeAndPush(seeker, title, body, data);
             }
@@ -339,6 +341,8 @@ public class NotificationService {
                 data.put("listingId", String.valueOf(listing.getId()));
                 data.put("route", "/users/" + seeker.getId());
                 data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
+                data.put("title", title);
+                data.put("body", body);
 
                 storeAndPush(host, title, body, data);
             }

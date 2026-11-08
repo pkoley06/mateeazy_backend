@@ -29,5 +29,6 @@ public class AdminBrandingResponse {
     private Integer developerUpiAmount;
     private String developerUpiNote;
     private Integer deletionGracePeriodDays;
+    private String activeIcon;
     private OffsetDateTime updatedAt;
 }

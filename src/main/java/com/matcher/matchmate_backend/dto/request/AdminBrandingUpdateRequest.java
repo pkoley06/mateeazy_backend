@@ -57,4 +57,7 @@ public class AdminBrandingUpdateRequest {
     @jakarta.validation.constraints.Min(value = 1, message = "Grace period must be at least 1 day")
     @jakarta.validation.constraints.Max(value = 365, message = "Grace period cannot exceed 365 days")
     private Integer deletionGracePeriodDays;
+
+    @Size(max = 50, message = "Active icon cannot exceed 50 characters")
+    private String activeIcon;
 }
