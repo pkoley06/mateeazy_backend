@@ -13,7 +13,7 @@ import com.matcher.matchmate_backend.repository.ListingCommentRepository;
 import com.matcher.matchmate_backend.repository.ListingLikeRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
 import com.matcher.matchmate_backend.storage.StorageService;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
@@ -59,6 +59,7 @@ public class AdminListingService {
     }
 
     /** {@code hostUserId} narrows the list to one user's listings (the admin user-detail screen). */
+    @Transactional(readOnly = true)
     public PageResponse<AdminListingSummaryResponse> list(
             String search, Boolean isAvailable, UUID hostUserId, int page, int size
     ) {
@@ -72,6 +73,7 @@ public class AdminListingService {
         return PageResponse.of(result, this::toSummary);
     }
 
+    @Transactional(readOnly = true)
     public AdminListingDetailResponse getById(UUID id) {
         return toDetail(findListing(id));
     }
