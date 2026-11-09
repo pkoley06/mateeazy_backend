@@ -7,6 +7,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+import java.util.UUID;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,4 +26,9 @@ public class AdminAnnouncementRequest {
     private String imageUrl;
 
     private String actionRoute;
+
+    /**
+     * Optional list of specific user IDs. If empty or null, broadcasts to ALL active users.
+     */
+    private List<UUID> userIds;
 }

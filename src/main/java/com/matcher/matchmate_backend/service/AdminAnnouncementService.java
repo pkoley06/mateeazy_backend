@@ -52,10 +52,15 @@ public class AdminAnnouncementService {
                 : null;
         String cleanRoute = (request.getActionRoute() != null && !request.getActionRoute().isBlank())
                 ? request.getActionRoute().trim()
-                : "/discover";
+                : "/home";
 
-        List<AppUser> activeUsers = userRepository.findByIsActiveTrueAndIsSuspendedFalse();
-        int recipientCount = activeUsers.size();
+        List<AppUser> targetUsers;
+        if (request.getUserIds() != null && !request.getUserIds().isEmpty()) {
+            targetUsers = userRepository.findAllById(request.getUserIds());
+        } else {
+            targetUsers = userRepository.findByIsActiveTrueAndIsSuspendedFalse();
+        }
+        int recipientCount = targetUsers.size();
 
         Announcement saved = announcementRepository.save(Announcement.builder()
                 .title(cleanTitle)
@@ -65,8 +70,8 @@ public class AdminAnnouncementService {
                 .recipientsCount(recipientCount)
                 .build());
 
-        // Dispatch async broadcast to all users
-        dispatchBroadcast(saved.getId(), cleanTitle, cleanBody, cleanImage, cleanRoute, activeUsers);
+        // Dispatch async broadcast to target users
+        dispatchBroadcast(saved.getId(), cleanTitle, cleanBody, cleanImage, cleanRoute, targetUsers);
 
         return toResponse(saved);
     }
