@@ -147,12 +147,13 @@ public class AdminUserService {
     }
 
     private AdminUserSummaryResponse toSummary(AppUser user) {
+        Integer age = user.getDateOfBirth() != null ? Period.between(user.getDateOfBirth(), LocalDate.now()).getYears() : null;
         return AdminUserSummaryResponse.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
                 .avatarUrl(user.getAvatarUrl())
                 .gender(user.getGender())
-                .age(Period.between(user.getDateOfBirth(), LocalDate.now()).getYears())
+                .age(age)
                 .lastKnownLocality(user.getLastKnownLocality())
                 .primaryAuthProvider(user.getPrimaryAuthProvider())
                 .email(user.getEmail())
@@ -168,6 +169,7 @@ public class AdminUserService {
     }
 
     private AdminUserDetailResponse toDetail(AppUser user) {
+        Integer age = user.getDateOfBirth() != null ? Period.between(user.getDateOfBirth(), LocalDate.now()).getYears() : null;
         return AdminUserDetailResponse.builder()
                 .id(user.getId())
                 .primaryAuthProvider(user.getPrimaryAuthProvider())
@@ -176,7 +178,7 @@ public class AdminUserService {
                 .fullName(user.getFullName())
                 .gender(user.getGender())
                 .dateOfBirth(user.getDateOfBirth())
-                .age(Period.between(user.getDateOfBirth(), LocalDate.now()).getYears())
+                .age(age)
                 .avatarUrl(user.getAvatarUrl())
                 .occupationCategory(user.getOccupationCategory())
                 .occupationTitle(user.getOccupationTitle())
