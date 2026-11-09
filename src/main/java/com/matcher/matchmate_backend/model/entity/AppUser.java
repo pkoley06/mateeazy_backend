@@ -26,6 +26,14 @@ public class AppUser {
     @Column(name = "firebase_uid", nullable = false, unique = true, length = 128)
     private String firebaseUid;
 
+    /** Google account email, captured from the Firebase token at sign-in. */
+    @Column(name = "email", length = 255)
+    private String email;
+
+    /** E.164 phone number, captured from the Firebase token at sign-in. */
+    @Column(name = "phone_number", length = 32)
+    private String phoneNumber;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "primary_auth_provider", nullable = false, length = 20)
     private PrimaryAuthProvider primaryAuthProvider;
@@ -151,6 +159,21 @@ public class AppUser {
 
     @Column(name = "last_seen_at")
     private OffsetDateTime lastSeenAt;
+
+    /** Identity verification (V23). Aadhaar / PAN verified through client Verhoeff / format check. */
+    @Column(name = "is_identity_verified", nullable = false)
+    @Builder.Default
+    private Boolean isIdentityVerified = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_document_type", length = 30)
+    private com.matcher.matchmate_backend.model.enums.auth.VerificationDocumentType verificationDocumentType;
+
+    @Column(name = "masked_document_id", length = 30)
+    private String maskedDocumentId;
+
+    @Column(name = "verified_at")
+    private OffsetDateTime verifiedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

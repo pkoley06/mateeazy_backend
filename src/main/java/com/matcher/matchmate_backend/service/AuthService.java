@@ -56,11 +56,19 @@ public class AuthService {
         String name = decodedToken.getName() == null ?  "New Roommate" : decodedToken.getName();
         String email = decodedToken.getEmail();
         String picture = decodedToken.getPicture();
+        Object phoneClaim = decodedToken.getClaims().get("phone_number");
+        String phone = phoneClaim instanceof String s && !s.isBlank() ? s : null;
 
         // Check if user already exists in PostgreSQL
         AppUser user = userRepository
                 .findByFirebaseUid(firebaseUid)
                 .orElseGet(() -> autoProvisionUser(firebaseUid, tokenVerifyRequest, name, picture));
+
+        // Keep the sign-in identifier current (also back-fills users created before it was stored).
+        boolean contactChanged = false;
+        if (email != null && !email.equals(user.getEmail())) { user.setEmail(email); contactChanged = true; }
+        if (phone != null && !phone.equals(user.getPhoneNumber())) { user.setPhoneNumber(phone); contactChanged = true; }
+        if (contactChanged) user = userRepository.save(user);
 
         // Suspended accounts never get this far - a clear reason at sign-in time, rather than a
         // token that then silently fails on the very next API call.

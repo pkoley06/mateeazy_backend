@@ -3,7 +3,9 @@ package com.matcher.matchmate_backend.service;
 
 import com.matcher.matchmate_backend.dto.request.DemographicsRequest;
 import com.matcher.matchmate_backend.dto.request.DeviceLocationRequest;
+import com.matcher.matchmate_backend.dto.request.IdentityVerificationRequest;
 import com.matcher.matchmate_backend.dto.request.LifestyleRequest;
+import com.matcher.matchmate_backend.dto.response.IdentityVerificationResponse;
 import com.matcher.matchmate_backend.dto.response.ListingResponse;
 import com.matcher.matchmate_backend.dto.response.OtherUserProfileResponse;
 import com.matcher.matchmate_backend.dto.response.UserDemographicsResponse;
@@ -12,10 +14,12 @@ import com.matcher.matchmate_backend.model.entity.AppBranding;
 import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.Listing;
 import com.matcher.matchmate_backend.model.enums.auth.AccountStatus;
+import com.matcher.matchmate_backend.model.enums.auth.VerificationDocumentType;
 import com.matcher.matchmate_backend.repository.AppBrandingRepository;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
 import com.matcher.matchmate_backend.storage.StorageService;
+import com.matcher.matchmate_backend.util.IdentityVerificationUtil;
 import jakarta.transaction.Transactional;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -233,6 +237,9 @@ public class UserService {
                 .cleanlinessLevel(user.getCleanlinessLevel())
                 .guestTolerance(user.getGuestTolerance())
                 .locality(user.getLastKnownLocality())
+                .isRoomSeeker(Boolean.TRUE.equals(user.getIsLookingForRoom()))
+                .isIdentityVerified(Boolean.TRUE.equals(user.getIsIdentityVerified()))
+                .maskedDocumentId(user.getMaskedDocumentId())
                 .activeListingsCount(listingResponses.size())
                 .activeListings(listingResponses)
                 .build();
@@ -322,6 +329,62 @@ public class UserService {
         // action via the normal listing-edit flow, not implicit on cancel.
     }
 
+    /**
+     * POST /api/v1/users/me/verify-identity - validates user identity document
+     * (Aadhaar / PAN) without storing raw numbers in the database.
+     */
+    @Transactional
+    public IdentityVerificationResponse verifyIdentity(UUID userId, IdentityVerificationRequest request) {
+        AppUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (Boolean.TRUE.equals(user.getIsIdentityVerified())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "User identity is already verified");
+        }
+
+        String rawNumber = request.getDocumentNumber();
+        String nameOnDoc = request.getNameOnDocument();
+        VerificationDocumentType docType = request.getDocumentType();
+
+        // 1. Validate name consistency with profile
+        if (!IdentityVerificationUtil.matchNames(nameOnDoc, user.getFullName())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "The name provided (" + nameOnDoc + ") does not match your profile name (" + user.getFullName() + ")");
+        }
+
+        // 2. Validate document algorithm / format & generate masked ID
+        String maskedId;
+        if (docType == VerificationDocumentType.AADHAAR) {
+            if (!IdentityVerificationUtil.validateAadhaar(rawNumber)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Aadhaar number or checksum verification failed");
+            }
+            maskedId = IdentityVerificationUtil.maskAadhaar(rawNumber);
+        } else if (docType == VerificationDocumentType.PAN) {
+            if (!IdentityVerificationUtil.validatePan(rawNumber)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid PAN number format (expected 5 letters, 4 digits, 1 letter)");
+            }
+            maskedId = IdentityVerificationUtil.maskPan(rawNumber);
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported document type: " + docType);
+        }
+
+        // 3. Update user verification status (strictly masked ID, never raw document number)
+        user.setIsIdentityVerified(true);
+        user.setVerificationDocumentType(docType);
+        user.setMaskedDocumentId(maskedId);
+        user.setVerifiedAt(OffsetDateTime.now());
+
+        userRepository.save(user);
+
+        return IdentityVerificationResponse.builder()
+                .isIdentityVerified(true)
+                .verificationDocumentType(docType)
+                .maskedDocumentId(maskedId)
+                .verifiedAt(user.getVerifiedAt())
+                .message("Identity verified successfully using " + (docType == VerificationDocumentType.AADHAAR ? "Aadhaar" : "PAN"))
+                .build();
+    }
+
     private UserProfileResponse toProfileResponse(AppUser user) {
         int age = Period.between(user.getDateOfBirth(), LocalDate.now()).getYears();
 
@@ -345,6 +408,10 @@ public class UserService {
                 .missingLifestyleFields(missingLifestyleFields(user))
                 .isRoomSeeker(user.getIsLookingForRoom() != null ? user.getIsLookingForRoom() : Boolean.FALSE)
                 .roomFinderGender(user.effectiveRoomFinderGender())
+                .isIdentityVerified(Boolean.TRUE.equals(user.getIsIdentityVerified()))
+                .verificationDocumentType(user.getVerificationDocumentType())
+                .maskedDocumentId(user.getMaskedDocumentId())
+                .verifiedAt(user.getVerifiedAt())
                 .build();
     }
 

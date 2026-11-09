@@ -24,11 +24,14 @@ public class AdminUserSummaryResponse {
     private Integer age;
     private String lastKnownLocality;
     private PrimaryAuthProvider primaryAuthProvider;
+    private String email;
+    private String phoneNumber;
     private Boolean isActive;
     private Boolean isSuspended;
     private String suspendedReason;
     /** Self-service lifecycle: ACTIVE / DISABLED / DELETED. */
     private AccountStatus accountStatus;
     private Boolean onboardingCompleted;
+    private Boolean isIdentityVerified;
     private OffsetDateTime createdAt;
 }

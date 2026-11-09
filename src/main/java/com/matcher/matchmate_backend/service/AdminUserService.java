@@ -45,7 +45,7 @@ public class AdminUserService {
         PageRequest pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Page<AppUser> result = StringUtils.hasText(search)
-                ? userRepository.findByFullNameContainingIgnoreCase(search.trim(), pageable)
+                ? userRepository.searchByNameEmailOrPhone(search.trim(), pageable)
                 : userRepository.findAll(pageable);
 
         return PageResponse.of(result, this::toSummary);
@@ -155,11 +155,14 @@ public class AdminUserService {
                 .age(Period.between(user.getDateOfBirth(), LocalDate.now()).getYears())
                 .lastKnownLocality(user.getLastKnownLocality())
                 .primaryAuthProvider(user.getPrimaryAuthProvider())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
                 .isActive(user.getIsActive())
                 .isSuspended(user.getIsSuspended())
                 .suspendedReason(user.getSuspendedReason())
                 .accountStatus(user.getAccountStatus())
                 .onboardingCompleted(user.getOnboardingCompleted())
+                .isIdentityVerified(Boolean.TRUE.equals(user.getIsIdentityVerified()))
                 .createdAt(user.getCreatedAt())
                 .build();
     }
@@ -168,6 +171,8 @@ public class AdminUserService {
         return AdminUserDetailResponse.builder()
                 .id(user.getId())
                 .primaryAuthProvider(user.getPrimaryAuthProvider())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
                 .fullName(user.getFullName())
                 .gender(user.getGender())
                 .dateOfBirth(user.getDateOfBirth())
@@ -190,6 +195,10 @@ public class AdminUserService {
                 .isLookingForRoom(user.getIsLookingForRoom())
                 .notificationPreferences(preferencesService.get(user.getId()))
                 .onboardingCompleted(user.getOnboardingCompleted())
+                .isIdentityVerified(Boolean.TRUE.equals(user.getIsIdentityVerified()))
+                .verificationDocumentType(user.getVerificationDocumentType() != null ? user.getVerificationDocumentType().name() : null)
+                .maskedDocumentId(user.getMaskedDocumentId())
+                .verifiedAt(user.getVerifiedAt())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

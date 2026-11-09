@@ -25,6 +25,12 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     /** Admin console user list search (by name) - see AdminUserService. */
     Page<AppUser> findByFullNameContainingIgnoreCase(String fullName, Pageable pageable);
 
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT u FROM AppUser u WHERE LOWER(u.fullName) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')) "
+          + "OR LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')) "
+          + "OR u.phoneNumber LIKE CONCAT('%', CAST(:q AS string), '%')")
+    Page<AppUser> searchByNameEmailOrPhone(@org.springframework.data.repository.query.Param("q") String q, Pageable pageable);
+
     /**
      * Seekers near a new room who have "Rooms listed nearby" on (no preference row = on) and
      * whose Room Finder gender filter admits the room: {@code genderPreference} is the room's

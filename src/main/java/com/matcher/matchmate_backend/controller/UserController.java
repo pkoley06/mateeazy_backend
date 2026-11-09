@@ -3,8 +3,10 @@ package com.matcher.matchmate_backend.controller;
 
 import com.matcher.matchmate_backend.dto.request.DemographicsRequest;
 import com.matcher.matchmate_backend.dto.request.DeviceLocationRequest;
+import com.matcher.matchmate_backend.dto.request.IdentityVerificationRequest;
 import com.matcher.matchmate_backend.dto.request.LifestyleRequest;
 import com.matcher.matchmate_backend.dto.request.RoomSeekerRequest;
+import com.matcher.matchmate_backend.dto.response.IdentityVerificationResponse;
 import com.matcher.matchmate_backend.dto.response.OtherUserProfileResponse;
 import com.matcher.matchmate_backend.dto.response.UserDemographicsResponse;
 import com.matcher.matchmate_backend.dto.response.UserProfileResponse;
@@ -68,6 +70,17 @@ public class UserController {
     @GetMapping("/{id}")
     public ResponseEntity<OtherUserProfileResponse> getOtherUserProfile(@PathVariable UUID id) {
         return ResponseEntity.ok(userService.getOtherUserProfile(id));
+    }
+
+    /**
+     * POST /api/v1/users/me/verify-identity - Verifies Aadhaar or PAN.
+     */
+    @PostMapping("/me/verify-identity")
+    public ResponseEntity<IdentityVerificationResponse> verifyIdentity(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @Valid @RequestBody IdentityVerificationRequest request
+    ) {
+        return ResponseEntity.ok(userService.verifyIdentity(principal.getUserId(), request));
     }
 
     /**
