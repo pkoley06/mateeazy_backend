@@ -76,7 +76,32 @@ public final class IdentityVerificationUtil {
     public static boolean validatePan(String pan) {
         if (pan == null) return false;
         String clean = pan.replaceAll("\\s+", "").trim().toUpperCase(Locale.ENGLISH);
-        return PAN_PATTERN.matcher(clean).matches();
+        if (!PAN_PATTERN.matcher(clean).matches()) return false;
+        // 4th character MUST be 'P' for individual persons (not company C, firm F, etc.)
+        return clean.charAt(3) == 'P';
+    }
+
+    /**
+     * Validates PAN with strict surname initial correlation.
+     * The 5th character of an Indian PAN card is always the first letter
+     * of the individual cardholder's surname / last name.
+     */
+    public static boolean validatePanWithSurname(String pan, String profileName) {
+        if (!validatePan(pan) || profileName == null || profileName.isBlank()) return false;
+        String clean = pan.replaceAll("\\s+", "").trim().toUpperCase(Locale.ENGLISH);
+        char expectedInitial = extractSurnameInitial(profileName);
+        return expectedInitial != ' ' && clean.charAt(4) == expectedInitial;
+    }
+
+    public static char extractSurnameInitial(String fullName) {
+        if (fullName == null || fullName.isBlank()) return ' ';
+        String[] tokens = fullName.trim().toUpperCase(Locale.ENGLISH).split("\\s+");
+        String surname = tokens[tokens.length - 1];
+        for (int i = 0; i < surname.length(); i++) {
+            char c = surname.charAt(i);
+            if (Character.isLetter(c)) return c;
+        }
+        return ' ';
     }
 
     /**
@@ -91,11 +116,15 @@ public final class IdentityVerificationUtil {
 
     /**
      * Validates whether the name on the document matches the profile name.
-     * Checks if at least one significant name token (length >= 2) from the document
-     * exists in the profile name (case-insensitive).
+     * Enforces that all major name tokens correlate (at least 70% match)
+     * rather than a single loose keyword.
      */
     public static boolean matchNames(String docName, String profileName) {
         if (docName == null || profileName == null) return false;
+        String cleanDoc = docName.toLowerCase(Locale.ENGLISH).replaceAll("[^a-z0-9]", "");
+        String cleanProfile = profileName.toLowerCase(Locale.ENGLISH).replaceAll("[^a-z0-9]", "");
+        if (cleanDoc.equals(cleanProfile)) return true;
+
         String[] docTokens = docName.toLowerCase(Locale.ENGLISH).trim().split("[\\s._-]+");
         String[] profileTokens = profileName.toLowerCase(Locale.ENGLISH).trim().split("[\\s._-]+");
 
@@ -104,14 +133,13 @@ public final class IdentityVerificationUtil {
         int validDocTokens = 0;
 
         for (String token : docTokens) {
-            if (token.length() >= 2) {
+            if (!token.isBlank()) {
                 validDocTokens++;
                 if (profileTokenSet.contains(token)) {
                     matches++;
                 }
             }
         }
-        // At least one valid token matches
-        return validDocTokens > 0 && matches >= 1;
+        return validDocTokens > 0 && ((double) matches / validDocTokens) >= 0.70;
     }
 }

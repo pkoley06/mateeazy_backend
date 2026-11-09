@@ -361,7 +361,12 @@ public class UserService {
             maskedId = IdentityVerificationUtil.maskAadhaar(rawNumber);
         } else if (docType == VerificationDocumentType.PAN) {
             if (!IdentityVerificationUtil.validatePan(rawNumber)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid PAN number format (expected 5 letters, 4 digits, 1 letter)");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid PAN number format (must be 5 letters, 4 digits, 1 letter, and 4th char 'P' for Individual)");
+            }
+            char expectedInitial = IdentityVerificationUtil.extractSurnameInitial(user.getFullName());
+            if (!IdentityVerificationUtil.validatePanWithSurname(rawNumber, user.getFullName())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "PAN does not belong to you: 5th character of PAN ('" + rawNumber.charAt(4) + "') must match your surname initial ('" + expectedInitial + "')");
             }
             maskedId = IdentityVerificationUtil.maskPan(rawNumber);
         } else {
