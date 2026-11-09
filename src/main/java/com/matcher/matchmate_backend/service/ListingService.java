@@ -196,13 +196,11 @@ public class ListingService {
         String hostAvatarUrl = null;
         String hostOccupationTitle = null;
         Boolean hostIsSeeker = null;
-        Boolean hostIsVerified = null;
         if (host != null) {
             hostName = host.getFullName();
             hostAvatarUrl = host.getAvatarUrl();
             hostOccupationTitle = host.getOccupationTitle();
             hostIsSeeker = host.getIsLookingForRoom();
-            hostIsVerified = Boolean.TRUE.equals(host.getIsIdentityVerified());
             if (host.getDateOfBirth() != null) {
                 hostAge = Period.between(host.getDateOfBirth(), LocalDate.now()).getYears();
             }
@@ -240,7 +238,6 @@ public class ListingService {
                 .hostAvatarUrl(hostAvatarUrl)
                 .hostOccupationTitle(hostOccupationTitle)
                 .isRoomSeekerHost(hostIsSeeker)
-                .isHostIdentityVerified(hostIsVerified)
                 .build();
     }
 }

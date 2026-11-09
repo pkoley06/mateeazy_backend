@@ -7,6 +7,7 @@ import com.matcher.matchmate_backend.dto.response.AdminUserSummaryResponse;
 import com.matcher.matchmate_backend.dto.response.PageResponse;
 import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.enums.auth.PrimaryAuthProvider;
+import java.time.OffsetDateTime;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.storage.StorageService;
 import jakarta.transaction.Transactional;
@@ -163,7 +164,6 @@ public class AdminUserService {
                 .suspendedReason(user.getSuspendedReason())
                 .accountStatus(user.getAccountStatus())
                 .onboardingCompleted(user.getOnboardingCompleted())
-                .isIdentityVerified(Boolean.TRUE.equals(user.getIsIdentityVerified()))
                 .createdAt(user.getCreatedAt())
                 .build();
     }
@@ -197,10 +197,6 @@ public class AdminUserService {
                 .isLookingForRoom(user.getIsLookingForRoom())
                 .notificationPreferences(preferencesService.get(user.getId()))
                 .onboardingCompleted(user.getOnboardingCompleted())
-                .isIdentityVerified(Boolean.TRUE.equals(user.getIsIdentityVerified()))
-                .verificationDocumentType(user.getVerificationDocumentType() != null ? user.getVerificationDocumentType().name() : null)
-                .maskedDocumentId(user.getMaskedDocumentId())
-                .verifiedAt(user.getVerifiedAt())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

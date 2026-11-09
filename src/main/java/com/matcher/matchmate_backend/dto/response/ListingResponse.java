@@ -60,5 +60,4 @@ public class ListingResponse {
     private String hostAvatarUrl;
     private String hostOccupationTitle;
     private Boolean isRoomSeekerHost;
-    private Boolean isHostIdentityVerified;
 }

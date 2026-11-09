@@ -234,7 +234,6 @@ public class DiscoveryService {
                 .hostGender(person.getGender())
                 .occupationTitle(person.getOccupationTitle())
                 .avatarUrl(person.getAvatarUrl())
-                .isIdentityVerified(Boolean.TRUE.equals(person.getIsIdentityVerified()))
                 .matchPercentage(match.matchPercentage())
                 .compatibilityHighlights(match.compatibilityHighlights());
     }

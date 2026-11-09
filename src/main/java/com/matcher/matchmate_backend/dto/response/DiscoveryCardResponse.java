@@ -36,7 +36,6 @@ public class DiscoveryCardResponse {
     private Gender hostGender;
     private String occupationTitle;
     private String avatarUrl;
-    private Boolean isIdentityVerified;
     private ListingType listingType;
     private RoomType roomType;
     private FurnishingStatus furnishingStatus;

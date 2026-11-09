@@ -31,8 +31,6 @@ public class OtherUserProfileResponse {
     private GuestTolerance guestTolerance;
     private String locality;
     private Boolean isRoomSeeker;
-    private Boolean isIdentityVerified;
-    private String maskedDocumentId;
     private Integer activeListingsCount;
     private List<ListingResponse> activeListings;
 }

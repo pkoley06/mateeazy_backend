@@ -32,6 +32,5 @@ public class AdminUserSummaryResponse {
     /** Self-service lifecycle: ACTIVE / DISABLED / DELETED. */
     private AccountStatus accountStatus;
     private Boolean onboardingCompleted;
-    private Boolean isIdentityVerified;
     private OffsetDateTime createdAt;
 }

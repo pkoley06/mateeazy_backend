@@ -53,10 +53,6 @@ public class AdminUserDetailResponse {
     private Boolean isLookingForRoom;
     private NotificationPreferencesResponse notificationPreferences;
     private Boolean onboardingCompleted;
-    private Boolean isIdentityVerified;
-    private String verificationDocumentType;
-    private String maskedDocumentId;
-    private OffsetDateTime verifiedAt;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

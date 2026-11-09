@@ -160,21 +160,6 @@ public class AppUser {
     @Column(name = "last_seen_at")
     private OffsetDateTime lastSeenAt;
 
-    /** Identity verification (V23). Aadhaar / PAN verified through client Verhoeff / format check. */
-    @Column(name = "is_identity_verified", nullable = false)
-    @Builder.Default
-    private Boolean isIdentityVerified = false;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "verification_document_type", length = 30)
-    private com.matcher.matchmate_backend.model.enums.auth.VerificationDocumentType verificationDocumentType;
-
-    @Column(name = "masked_document_id", length = 30)
-    private String maskedDocumentId;
-
-    @Column(name = "verified_at")
-    private OffsetDateTime verifiedAt;
-
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

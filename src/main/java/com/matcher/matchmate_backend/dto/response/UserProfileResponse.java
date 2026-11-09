@@ -44,9 +44,4 @@ public class UserProfileResponse {
     private Boolean isRoomSeeker;
     /** Effective Room Finder gender filter (never null: falls back to the user's own gender). */
     private com.matcher.matchmate_backend.model.enums.listing.GenderPreference roomFinderGender;
-
-    private Boolean isIdentityVerified;
-    private com.matcher.matchmate_backend.model.enums.auth.VerificationDocumentType verificationDocumentType;
-    private String maskedDocumentId;
-    private java.time.OffsetDateTime verifiedAt;
 }
