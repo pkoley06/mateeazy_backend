@@ -55,10 +55,18 @@ public class AdminAnnouncementService {
                 : "/home";
 
         List<AppUser> targetUsers;
-        if (request.getUserIds() != null && !request.getUserIds().isEmpty()) {
+        boolean isExplicitBroadcastAll = Boolean.TRUE.equals(request.getBroadcastAll()) ||
+                (request.getUserIds() == null && request.getBroadcastAll() == null);
+
+        if (!isExplicitBroadcastAll && request.getUserIds() != null && !request.getUserIds().isEmpty()) {
             targetUsers = userRepository.findAllById(request.getUserIds());
+            log.info("[Broadcast] Targeted announcement to {} specific user(s): {}", targetUsers.size(), request.getUserIds());
+        } else if (!isExplicitBroadcastAll) {
+            targetUsers = List.of();
+            log.warn("[Broadcast] Target audience set to specific users but userIds list was empty!");
         } else {
             targetUsers = userRepository.findByIsActiveTrueAndIsSuspendedFalse();
+            log.info("[Broadcast] Broadcasting announcement to all {} active users", targetUsers.size());
         }
         int recipientCount = targetUsers.size();
 

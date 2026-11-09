@@ -28,7 +28,12 @@ public class AdminAnnouncementRequest {
     private String actionRoute;
 
     /**
-     * Optional list of specific user IDs. If empty or null, broadcasts to ALL active users.
+     * If true, broadcasts to all active users. If false, targets only the users in userIds.
+     */
+    private Boolean broadcastAll;
+
+    /**
+     * Optional list of specific user IDs. If empty or null and broadcastAll is true, broadcasts to ALL active users.
      */
     private List<UUID> userIds;
 }
