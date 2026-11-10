@@ -61,6 +61,7 @@ public class AdminListingUpdateRequest {
     private List<String> photoUrls;
     private LocalDate moveInDate;
     private List<String> amenities;
+    private List<String> houseRules;
     private GenderPreference genderPreference;
     /** Legacy flag; only consulted when {@link #genderPreference} is absent. */
     private Boolean openToAllGenders;

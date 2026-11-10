@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -117,20 +118,47 @@ public class ChatEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onConversationRequestChanged(com.matcher.matchmate_backend.event.ConversationRequestEvent event) {
-        Map<String, Object> update = Map.of(
-                "type", "REQUEST_STATUS_CHANGED",
-                "conversationId", event.conversationId(),
-                "requestStatus", event.status().name()
-        );
-        try {
-            broadcaster.sendStatusUpdate(event.initiatorId(), update);
-        } catch (Exception e) {
-            log.warn("[WS] Failed to send request status to {}: {}", event.initiatorId(), e.getMessage());
+        Map<String, Object> update = new HashMap<>();
+        update.put("type", "REQUEST_STATUS_CHANGED");
+        update.put("conversationId", event.conversationId().toString());
+        update.put("requestStatus", event.status().name());
+        if (event.initiatorUserId() != null) {
+            update.put("initiatorUserId", event.initiatorUserId().toString());
         }
-        try {
-            broadcaster.sendStatusUpdate(event.recipientId(), update);
-        } catch (Exception e) {
-            log.warn("[WS] Failed to send request status to {}: {}", event.recipientId(), e.getMessage());
+        if (event.participantOneId() != null) {
+            try {
+                broadcaster.sendStatusUpdate(event.participantOneId(), update);
+            } catch (Exception e) {
+                log.warn("[WS] Failed to send request status to {}: {}", event.participantOneId(), e.getMessage());
+            }
+        }
+        if (event.participantTwoId() != null && !event.participantTwoId().equals(event.participantOneId())) {
+            try {
+                broadcaster.sendStatusUpdate(event.participantTwoId(), update);
+            } catch (Exception e) {
+                log.warn("[WS] Failed to send request status to {}: {}", event.participantTwoId(), e.getMessage());
+            }
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onMessageReacted(com.matcher.matchmate_backend.event.MessageReactedEvent event) {
+        if (event.reactorId().equals(event.authorId())) {
+            return;
+        }
+        AppUser author = userRepository.findById(event.authorId()).orElse(null);
+        AppUser reactor = userRepository.findById(event.reactorId()).orElse(null);
+        if (author != null && reactor != null) {
+            notificationService.notifyRecipientOfMessageReaction(
+                    author,
+                    event.conversationId(),
+                    event.reactorId(),
+                    reactor.getFullName(),
+                    reactor.getAvatarUrl(),
+                    event.messageId(),
+                    event.emoji(),
+                    event.messageContent()
+            );
         }
     }
 

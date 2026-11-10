@@ -6,8 +6,9 @@ import java.util.UUID;
 
 public record ConversationRequestEvent(
         UUID conversationId,
-        UUID initiatorId,
-        UUID recipientId,
+        UUID participantOneId,
+        UUID participantTwoId,
+        UUID initiatorUserId,
         ConversationRequestStatus status
 ) {
 }

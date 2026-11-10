@@ -82,6 +82,10 @@ public class Listing {
     @Builder.Default
     private List<String> amenities = new ArrayList<>();
 
+    @Column(name = "house_rules", columnDefinition = "text[]")
+    @Builder.Default
+    private List<String> houseRules = new ArrayList<>();
+
     /** Replaces the V4 {@code open_to_all_genders} flag (migrated in V12). */
     @Enumerated(EnumType.STRING)
     @Column(name = "gender_preference", nullable = false, length = 20)

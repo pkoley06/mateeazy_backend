@@ -43,6 +43,7 @@ public class ListingResponse {
     private List<String> photoUrls;
     private LocalDate moveInDate;
     private List<String> amenities;
+    private List<String> houseRules;
     private GenderPreference genderPreference;
     /** Derived from {@link #genderPreference}; kept so older clients keep working. */
     private Boolean openToAllGenders;

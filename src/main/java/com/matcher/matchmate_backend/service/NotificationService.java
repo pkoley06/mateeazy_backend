@@ -414,6 +414,42 @@ public class NotificationService {
         }
     }
 
+    @Async
+    public void notifyRecipientOfMessageReaction(
+            AppUser recipient, UUID conversationId, UUID reactorId, String reactorName, String reactorAvatarUrl,
+            UUID messageId, String emoji, String messageText
+    ) {
+        if (recipient == null) return;
+        if (!preferencesService.allows(recipient.getId(), UserNotificationPreferences::getNotifyMessages)) {
+            log.debug("[FCM] User #{} muted messages; skipping reaction push", recipient.getId());
+            return;
+        }
+
+        try {
+            String text = messageText == null ? "" : messageText.trim();
+            String preview = text.length() > 60 ? text.substring(0, 57) + "…" : text;
+            String name = reactorName != null && !reactorName.isBlank() ? reactorName : "Someone";
+            String title = name + " reacted " + emoji;
+            String body = preview.isEmpty() ? "Reacted " + emoji + " to your message" : preview;
+
+            Map<String, String> data = new HashMap<>();
+            data.put("type", "CHAT_MESSAGE_REACTION");
+            data.put("conversation_id", String.valueOf(conversationId));
+            data.put("reactor_id", String.valueOf(reactorId));
+            data.put("reactor_name", name);
+            data.put("reactor_avatar_url", reactorAvatarUrl != null ? reactorAvatarUrl : "");
+            data.put("message_id", String.valueOf(messageId));
+            data.put("emoji", emoji);
+            data.put("route", "/chat/" + conversationId);
+            data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
+
+            storeAndPush(recipient, title, body, data);
+        } catch (Exception e) {
+            log.error("[FCM] Error notifying user #{} about a reaction in conversation #{}: {}",
+                    recipient.getId(), conversationId, e.getMessage());
+        }
+    }
+
     /**
      * Chat-specific dispatch: data-only with high priority on Android (so the app, not FCM,
      * draws the tray card - see the app's {@code ChatTrayNotifications}), and an alert with

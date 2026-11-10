@@ -7,6 +7,7 @@ import com.matcher.matchmate_backend.dto.response.LastMessageSummary;
 import com.matcher.matchmate_backend.dto.response.MessageReactionResponse;
 import com.matcher.matchmate_backend.dto.response.MessageResponse;
 import com.matcher.matchmate_backend.dto.response.PageResponse;
+import com.matcher.matchmate_backend.event.MessageReactedEvent;
 import com.matcher.matchmate_backend.event.MessageSentEvent;
 import com.matcher.matchmate_backend.event.MessageUpdatedEvent;
 import com.matcher.matchmate_backend.event.MessagesDeliveredEvent;
@@ -139,9 +140,9 @@ public class ChatService {
         requireParticipant(conversation, userId);
         conversation.setRequestStatus(com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.ACCEPTED);
         Conversation saved = conversationRepository.save(conversation);
-        UUID otherId = otherParticipantId(saved, userId);
         eventPublisher.publishEvent(new com.matcher.matchmate_backend.event.ConversationRequestEvent(
-                conversationId, saved.getInitiatorUserId(), otherId, com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.ACCEPTED));
+                conversationId, saved.getUserOne().getId(), saved.getUserTwo().getId(), saved.getInitiatorUserId(),
+                com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.ACCEPTED));
         return toSummary(saved, userId);
     }
 
@@ -152,9 +153,9 @@ public class ChatService {
         conversation.setRequestStatus(com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.REJECTED);
         zeroUnread(conversation, userId);
         Conversation saved = conversationRepository.save(conversation);
-        UUID otherId = otherParticipantId(saved, userId);
         eventPublisher.publishEvent(new com.matcher.matchmate_backend.event.ConversationRequestEvent(
-                conversationId, saved.getInitiatorUserId(), otherId, com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.REJECTED));
+                conversationId, saved.getUserOne().getId(), saved.getUserTwo().getId(), saved.getInitiatorUserId(),
+                com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.REJECTED));
         return toSummary(saved, userId);
     }
 
@@ -373,6 +374,7 @@ public class ChatService {
         String trimmedEmoji = emoji.trim();
 
         Optional<MessageReaction> existing = messageReactionRepository.findByMessageIdAndUserId(messageId, userId);
+        boolean reactionAdded = existing.isEmpty() || !existing.get().getEmoji().equals(trimmedEmoji);
         if (existing.isPresent()) {
             if (existing.get().getEmoji().equals(trimmedEmoji)) {
                 messageReactionRepository.delete(existing.get());
@@ -397,6 +399,12 @@ public class ChatService {
                 message.getConversation().getId(), message.getId(), userId, otherId,
                 message.getContent(), message.getIsEdited(), message.getEditedAt(),
                 message.getIsDeleted(), message.getDeletedAt(), reactions));
+
+        if (reactionAdded && !message.getSender().getId().equals(userId)) {
+            eventPublisher.publishEvent(new MessageReactedEvent(
+                    message.getConversation().getId(), message.getId(), userId,
+                    message.getSender().getId(), trimmedEmoji, message.getContent()));
+        }
 
         return toMessageResponse(message, reactions);
     }

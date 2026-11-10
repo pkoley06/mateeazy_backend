@@ -82,6 +82,8 @@ public class ListingCreateRequest {
 
     private List<String> amenities;
 
+    private List<String> houseRules;
+
     /** ALL / MALE / FEMALE / NON_BINARY. Defaults to ALL (or to the legacy flag below) when omitted. */
     private GenderPreference genderPreference;
 

@@ -72,6 +72,7 @@ public class ListingService {
                 .photoUrls(request.getPhotoUrls() != null ? new ArrayList<>(request.getPhotoUrls()) : new ArrayList<>())
                 .moveInDate(request.getMoveInDate())
                 .amenities(request.getAmenities() != null ? new ArrayList<>(request.getAmenities()) : new ArrayList<>())
+                .houseRules(request.getHouseRules() != null ? new ArrayList<>(request.getHouseRules()) : new ArrayList<>())
                 .genderPreference(resolveGenderPreference(request.getGenderPreference(), request.getOpenToAllGenders(), host))
                 .kitchenType(request.getKitchenType())
                 .washroomType(request.getWashroomType())
@@ -117,6 +118,7 @@ public class ListingService {
         }
         if (request.getMoveInDate() != null) listing.setMoveInDate(request.getMoveInDate());
         if (request.getAmenities() != null) listing.setAmenities(new ArrayList<>(request.getAmenities()));
+        if (request.getHouseRules() != null) listing.setHouseRules(new ArrayList<>(request.getHouseRules()));
         if (request.getGenderPreference() != null) {
             listing.setGenderPreference(request.getGenderPreference());
         } else if (request.getOpenToAllGenders() != null) {
@@ -226,6 +228,7 @@ public class ListingService {
                 .photoUrls(listing.getPhotoUrls())
                 .moveInDate(listing.getMoveInDate())
                 .amenities(listing.getAmenities())
+                .houseRules(listing.getHouseRules() != null ? listing.getHouseRules() : new ArrayList<>())
                 .genderPreference(listing.getGenderPreference())
                 .openToAllGenders(listing.isOpenToAllGenders())
                 .isAvailable(listing.getIsAvailable())

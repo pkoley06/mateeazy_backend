@@ -78,6 +78,7 @@ public class AdminListingCreateRequest {
     private List<String> photoUrls;
     private LocalDate moveInDate;
     private List<String> amenities;
+    private List<String> houseRules;
 
     private GenderPreference genderPreference;
 
