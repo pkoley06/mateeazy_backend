@@ -1,4 +1,4 @@
--- V23: Chat requests (accept/reject), replies, message editing, 5-minute deletion window, and emoji reactions
+-- V24: Chat requests (accept/reject), replies, message editing, 5-minute deletion window, and emoji reactions
 
 -- 1. Conversation request status (PENDING, ACCEPTED, REJECTED) and initiator
 ALTER TABLE conversations
