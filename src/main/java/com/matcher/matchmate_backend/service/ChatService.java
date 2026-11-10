@@ -221,13 +221,21 @@ public class ChatService {
             if (senderId.equals(conversation.getInitiatorUserId())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Message request was declined. You cannot send further messages.");
             } else {
-                // The recipient who previously declined decided to message back; re-allow conversation
-                conversation.setRequestStatus(ConversationRequestStatus.ACCEPTED);
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You declined this message request. Please allow it first to start chatting.");
             }
         } else if (conversation.getRequestStatus() == ConversationRequestStatus.PENDING) {
-            if (!senderId.equals(conversation.getInitiatorUserId())) {
-                // The recipient replied; automatically accept the request
-                conversation.setRequestStatus(ConversationRequestStatus.ACCEPTED);
+            if (conversation.getInitiatorUserId() == null) {
+                conversation.setInitiatorUserId(senderId);
+            }
+            if (senderId.equals(conversation.getInitiatorUserId())) {
+                boolean alreadySent = messageRepository.existsByConversationId(conversationId);
+                if (alreadySent) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                            "You can only send 1 message with a message request. Please wait for the recipient to accept.");
+                }
+            } else {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Please accept the message request to start chatting.");
             }
         }
 

@@ -14,6 +14,8 @@ import java.util.UUID;
 
 public interface MessageRepository extends JpaRepository<Message, UUID> {
 
+    boolean existsByConversationId(UUID conversationId);
+
     Page<Message> findByConversationIdOrderBySentAtDesc(UUID conversationId, Pageable pageable);
 
     /** For mark-read: the reader's unread/undelivered messages in this conversation. */
