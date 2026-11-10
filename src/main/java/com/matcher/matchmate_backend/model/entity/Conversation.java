@@ -49,6 +49,15 @@ public class Conversation {
     @Builder.Default
     private Integer unreadCountUserTwo = 0;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "request_status", nullable = false, length = 20)
+    @Builder.Default
+    private com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus requestStatus =
+            com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.ACCEPTED;
+
+    @Column(name = "initiator_user_id")
+    private UUID initiatorUserId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

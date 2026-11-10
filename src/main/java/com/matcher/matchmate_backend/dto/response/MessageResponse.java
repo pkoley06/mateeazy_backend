@@ -28,6 +28,14 @@ public class MessageResponse {
     /** 1-5 photo URLs for IMAGE, exactly one URL for GIF, empty for TEXT. */
     private List<String> attachmentUrls;
     private MessageStatus status;
+    private UUID replyToMessageId;
+    private String replyToContent;
+    private String replyToSenderName;
+    private Boolean isEdited;
+    private OffsetDateTime editedAt;
+    private Boolean isDeleted;
+    @Builder.Default
+    private List<MessageReactionResponse> reactions = List.of();
     private OffsetDateTime sentAt;
     private OffsetDateTime deliveredAt;
     private OffsetDateTime readAt;

@@ -4,20 +4,25 @@ import com.matcher.matchmate_backend.dto.response.ConversationListingSummary;
 import com.matcher.matchmate_backend.dto.response.ConversationParticipantSummary;
 import com.matcher.matchmate_backend.dto.response.ConversationSummaryResponse;
 import com.matcher.matchmate_backend.dto.response.LastMessageSummary;
+import com.matcher.matchmate_backend.dto.response.MessageReactionResponse;
 import com.matcher.matchmate_backend.dto.response.MessageResponse;
 import com.matcher.matchmate_backend.dto.response.PageResponse;
 import com.matcher.matchmate_backend.event.MessageSentEvent;
+import com.matcher.matchmate_backend.event.MessageUpdatedEvent;
 import com.matcher.matchmate_backend.event.MessagesDeliveredEvent;
 import com.matcher.matchmate_backend.event.MessagesReadEvent;
 import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.Conversation;
 import com.matcher.matchmate_backend.model.entity.Listing;
 import com.matcher.matchmate_backend.model.entity.Message;
+import com.matcher.matchmate_backend.model.entity.MessageReaction;
+import com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus;
 import com.matcher.matchmate_backend.model.enums.chat.MessageStatus;
 import com.matcher.matchmate_backend.model.enums.chat.MessageType;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.repository.ConversationRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
+import com.matcher.matchmate_backend.repository.MessageReactionRepository;
 import com.matcher.matchmate_backend.repository.MessageRepository;
 import com.matcher.matchmate_backend.repository.UserBlockRepository;
 import com.matcher.matchmate_backend.storage.StorageService;
@@ -31,12 +36,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -63,6 +71,7 @@ public class ChatService {
     private final ApplicationEventPublisher eventPublisher;
     private final StorageService storageService;
     private final ChatMediaQuotaService mediaQuotaService;
+    private final com.matcher.matchmate_backend.repository.MessageReactionRepository messageReactionRepository;
 
     public ChatService(
             ConversationRepository conversationRepository,
@@ -73,7 +82,8 @@ public class ChatService {
             PresenceRegistry presenceRegistry,
             ApplicationEventPublisher eventPublisher,
             StorageService storageService,
-            ChatMediaQuotaService mediaQuotaService
+            ChatMediaQuotaService mediaQuotaService,
+            com.matcher.matchmate_backend.repository.MessageReactionRepository messageReactionRepository
     ) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
@@ -84,6 +94,7 @@ public class ChatService {
         this.eventPublisher = eventPublisher;
         this.storageService = storageService;
         this.mediaQuotaService = mediaQuotaService;
+        this.messageReactionRepository = messageReactionRepository;
     }
 
     // ------------------------------------------------------------------ conversations
@@ -99,12 +110,12 @@ public class ChatService {
         UUID userTwoId = requesterFirst ? otherUserId : requesterId;
 
         Conversation conversation = conversationRepository.findByUserOneIdAndUserTwoId(userOneId, userTwoId)
-                .orElseGet(() -> createConversation(userOneId, userTwoId, listingId));
+                .orElseGet(() -> createConversation(userOneId, userTwoId, listingId, requesterId));
 
         return toSummary(conversation, requesterId);
     }
 
-    private Conversation createConversation(UUID userOneId, UUID userTwoId, UUID listingId) {
+    private Conversation createConversation(UUID userOneId, UUID userTwoId, UUID listingId, UUID initiatorUserId) {
         AppUser userOne = userRepository.findById(userOneId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         AppUser userTwo = userRepository.findById(userTwoId)
@@ -116,8 +127,35 @@ public class ChatService {
                 .userOne(userOne)
                 .userTwo(userTwo)
                 .listing(listing)
+                .requestStatus(com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.PENDING)
+                .initiatorUserId(initiatorUserId)
                 .build();
         return conversationRepository.save(conversation);
+    }
+
+    @Transactional
+    public ConversationSummaryResponse acceptConversationRequest(UUID conversationId, UUID userId) {
+        Conversation conversation = loadConversation(conversationId);
+        requireParticipant(conversation, userId);
+        conversation.setRequestStatus(com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.ACCEPTED);
+        Conversation saved = conversationRepository.save(conversation);
+        UUID otherId = otherParticipantId(saved, userId);
+        eventPublisher.publishEvent(new com.matcher.matchmate_backend.event.ConversationRequestEvent(
+                conversationId, saved.getInitiatorUserId(), otherId, com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.ACCEPTED));
+        return toSummary(saved, userId);
+    }
+
+    @Transactional
+    public ConversationSummaryResponse rejectConversationRequest(UUID conversationId, UUID userId) {
+        Conversation conversation = loadConversation(conversationId);
+        requireParticipant(conversation, userId);
+        conversation.setRequestStatus(com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.REJECTED);
+        zeroUnread(conversation, userId);
+        Conversation saved = conversationRepository.save(conversation);
+        UUID otherId = otherParticipantId(saved, userId);
+        eventPublisher.publishEvent(new com.matcher.matchmate_backend.event.ConversationRequestEvent(
+                conversationId, saved.getInitiatorUserId(), otherId, com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus.REJECTED));
+        return toSummary(saved, userId);
     }
 
     @Transactional
@@ -141,23 +179,35 @@ public class ChatService {
         Conversation conversation = loadConversation(conversationId);
         requireParticipant(conversation, requesterId);
         Page<Message> page = messageRepository.findByConversationIdOrderBySentAtDesc(conversationId, pageable);
-        return PageResponse.of(page, this::toMessageResponse);
+        List<UUID> messageIds = page.getContent().stream().map(Message::getId).toList();
+        Map<UUID, List<MessageReaction>> reactionsByMessageId = new HashMap<>();
+        if (!messageIds.isEmpty()) {
+            for (MessageReaction r : messageReactionRepository.findByMessageIdIn(messageIds)) {
+                reactionsByMessageId.computeIfAbsent(r.getMessage().getId(), k -> new ArrayList<>()).add(r);
+            }
+        }
+        return PageResponse.of(page, m -> toMessageResponse(m, mapReactions(reactionsByMessageId.getOrDefault(m.getId(), List.of()))));
     }
 
     /** Older callers: a plain text message. */
     @Transactional
     public MessageResponse sendMessage(UUID conversationId, UUID senderId, String content) {
-        return sendMessage(conversationId, senderId, content, MessageType.TEXT, null);
+        return sendMessage(conversationId, senderId, content, MessageType.TEXT, null, null);
     }
 
-    /**
-     * Sends a TEXT, IMAGE (1-5 photos, counted against the daily quota) or GIF message.
-     * Attachment URLs must be ones this backend stored, except a GIF may also point at a
-     * Tenor CDN result handed out by {@code GifService}.
-     */
     @Transactional
     public MessageResponse sendMessage(
             UUID conversationId, UUID senderId, String content, MessageType type, List<String> attachmentUrls
+    ) {
+        return sendMessage(conversationId, senderId, content, type, attachmentUrls, null);
+    }
+
+    /**
+     * Sends a TEXT, IMAGE (1-5 photos, counted against the daily quota) or GIF message, with optional reply context.
+     */
+    @Transactional
+    public MessageResponse sendMessage(
+            UUID conversationId, UUID senderId, String content, MessageType type, List<String> attachmentUrls, UUID replyToMessageId
     ) {
         MessageType messageType = type == null ? MessageType.TEXT : type;
         List<String> attachments = validateAttachments(messageType, attachmentUrls);
@@ -165,6 +215,22 @@ public class ChatService {
         Conversation conversation = loadConversation(conversationId);
         UUID recipientId = otherParticipantId(conversation, senderId);
         requireNotBlocked(senderId, recipientId);
+
+        // Check request status
+        if (conversation.getRequestStatus() == ConversationRequestStatus.REJECTED) {
+            if (senderId.equals(conversation.getInitiatorUserId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Message request was declined. You cannot send further messages.");
+            } else {
+                // The recipient who previously declined decided to message back; re-allow conversation
+                conversation.setRequestStatus(ConversationRequestStatus.ACCEPTED);
+            }
+        } else if (conversation.getRequestStatus() == ConversationRequestStatus.PENDING) {
+            if (!senderId.equals(conversation.getInitiatorUserId())) {
+                // The recipient replied; automatically accept the request
+                conversation.setRequestStatus(ConversationRequestStatus.ACCEPTED);
+            }
+        }
+
         if (messageType == MessageType.IMAGE) {
             mediaQuotaService.requireAllowance(senderId, attachments.size());
         }
@@ -173,6 +239,26 @@ public class ChatService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         AppUser recipient = userRepository.findById(recipientId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        String replyToSenderName = null;
+        String replyToContent = null;
+        if (replyToMessageId != null) {
+            Message replyTo = messageRepository.findById(replyToMessageId).orElse(null);
+            if (replyTo != null && replyTo.getConversation().getId().equals(conversationId)) {
+                replyToSenderName = replyTo.getSender().getFullName();
+                if (Boolean.TRUE.equals(replyTo.getIsDeleted())) {
+                    replyToContent = "This message was deleted";
+                } else if (replyTo.getMessageType() == MessageType.IMAGE) {
+                    replyToContent = replyTo.getContent().isBlank() ? "📷 Photo" : "📷 " + replyTo.getContent();
+                } else if (replyTo.getMessageType() == MessageType.GIF) {
+                    replyToContent = "GIF";
+                } else {
+                    replyToContent = replyTo.getContent().length() > 150
+                            ? replyTo.getContent().substring(0, 150) + "..."
+                            : replyTo.getContent();
+                }
+            }
+        }
 
         boolean recipientOnline = presenceRegistry.isOnline(recipientId);
         OffsetDateTime now = OffsetDateTime.now();
@@ -186,6 +272,11 @@ public class ChatService {
                 .attachmentUrls(new ArrayList<>(attachments))
                 .status(recipientOnline ? MessageStatus.DELIVERED : MessageStatus.SENT)
                 .deliveredAt(recipientOnline ? now : null)
+                .replyToMessageId(replyToMessageId)
+                .replyToContent(replyToContent)
+                .replyToSenderName(replyToSenderName)
+                .isEdited(false)
+                .isDeleted(false)
                 .build();
         Message saved = messageRepository.save(message);
 
@@ -195,9 +286,111 @@ public class ChatService {
 
         eventPublisher.publishEvent(new MessageSentEvent(
                 conversation.getId(), saved.getId(), senderId, recipientId,
-                trimmed, messageType, List.copyOf(attachments), saved.getSentAt(), saved.getStatus()));
+                trimmed, messageType, List.copyOf(attachments), saved.getSentAt(), saved.getStatus(),
+                replyToMessageId, replyToContent, replyToSenderName));
 
-        return toMessageResponse(saved);
+        return toMessageResponse(saved, List.of());
+    }
+
+    @Transactional
+    public MessageResponse editMessage(UUID messageId, UUID userId, String newContent) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Message not found"));
+        if (!message.getSender().getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only edit your own messages");
+        }
+        if (Boolean.TRUE.equals(message.getIsDeleted())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Deleted messages cannot be edited");
+        }
+        String trimmed = validateContent(newContent);
+        message.setContent(trimmed);
+        message.setIsEdited(true);
+        message.setEditedAt(OffsetDateTime.now());
+        Message saved = messageRepository.save(message);
+
+        List<MessageReactionResponse> reactions = mapReactions(messageReactionRepository.findByMessageId(messageId));
+        UUID otherId = otherParticipantId(message.getConversation(), userId);
+        eventPublisher.publishEvent(new MessageUpdatedEvent(
+                message.getConversation().getId(), message.getId(), userId, otherId,
+                trimmed, true, saved.getEditedAt(), false, null, reactions));
+
+        return toMessageResponse(saved, reactions);
+    }
+
+    @Transactional
+    public MessageResponse deleteMessage(UUID messageId, UUID userId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Message not found"));
+        if (!message.getSender().getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only delete your own messages");
+        }
+        if (Boolean.TRUE.equals(message.getIsDeleted())) {
+            return toMessageResponse(message);
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        long minutes = Duration.between(message.getSentAt(), now).toMinutes();
+        if (minutes > 5) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Messages can only be deleted within 5 minutes of sending");
+        }
+        message.setIsDeleted(true);
+        message.setDeletedAt(now);
+        message.setContent("This message was deleted");
+        message.setAttachmentUrls(new ArrayList<>());
+        Message saved = messageRepository.save(message);
+
+        List<MessageReaction> reactions = messageReactionRepository.findByMessageId(messageId);
+        if (!reactions.isEmpty()) {
+            messageReactionRepository.deleteAll(reactions);
+        }
+
+        UUID otherId = otherParticipantId(message.getConversation(), userId);
+        eventPublisher.publishEvent(new MessageUpdatedEvent(
+                message.getConversation().getId(), message.getId(), userId, otherId,
+                "This message was deleted", false, null, true, now, List.of()));
+
+        return toMessageResponse(saved, List.of());
+    }
+
+    @Transactional
+    public MessageResponse toggleReaction(UUID messageId, UUID userId, String emoji) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Message not found"));
+        requireParticipant(message.getConversation(), userId);
+        if (Boolean.TRUE.equals(message.getIsDeleted())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot react to a deleted message");
+        }
+        if (emoji == null || emoji.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Emoji cannot be blank");
+        }
+        String trimmedEmoji = emoji.trim();
+
+        Optional<MessageReaction> existing = messageReactionRepository.findByMessageIdAndUserId(messageId, userId);
+        if (existing.isPresent()) {
+            if (existing.get().getEmoji().equals(trimmedEmoji)) {
+                messageReactionRepository.delete(existing.get());
+            } else {
+                existing.get().setEmoji(trimmedEmoji);
+                messageReactionRepository.save(existing.get());
+            }
+        } else {
+            AppUser user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+            MessageReaction mr = MessageReaction.builder()
+                    .message(message)
+                    .user(user)
+                    .emoji(trimmedEmoji)
+                    .build();
+            messageReactionRepository.save(mr);
+        }
+
+        List<MessageReactionResponse> reactions = mapReactions(messageReactionRepository.findByMessageId(messageId));
+        UUID otherId = otherParticipantId(message.getConversation(), userId);
+        eventPublisher.publishEvent(new MessageUpdatedEvent(
+                message.getConversation().getId(), message.getId(), userId, otherId,
+                message.getContent(), message.getIsEdited(), message.getEditedAt(),
+                message.getIsDeleted(), message.getDeletedAt(), reactions));
+
+        return toMessageResponse(message, reactions);
     }
 
     private List<String> validateAttachments(MessageType type, List<String> urls) {
@@ -419,6 +612,8 @@ public class ChatService {
                 .listing(listingSummary)
                 .lastMessage(lastMessageSummary)
                 .unreadCount(unreadCount)
+                .requestStatus(conversation.getRequestStatus())
+                .initiatorUserId(conversation.getInitiatorUserId())
                 .createdAt(conversation.getCreatedAt())
                 .build();
     }
@@ -429,7 +624,27 @@ public class ChatService {
         return a.toString().compareTo(b.toString());
     }
 
-    private MessageResponse toMessageResponse(Message m) {
+    private List<MessageReactionResponse> mapReactions(List<MessageReaction> list) {
+        if (list == null || list.isEmpty()) return List.of();
+        Map<String, List<UUID>> grouped = new LinkedHashMap<>();
+        for (MessageReaction r : list) {
+            grouped.computeIfAbsent(r.getEmoji(), k -> new ArrayList<>()).add(r.getUser().getId());
+        }
+        return grouped.entrySet().stream()
+                .map(e -> MessageReactionResponse.builder()
+                        .emoji(e.getKey())
+                        .count(e.getValue().size())
+                        .userIds(e.getValue())
+                        .build())
+                .toList();
+    }
+
+    public MessageResponse toMessageResponse(Message m) {
+        List<MessageReaction> reactions = messageReactionRepository.findByMessageId(m.getId());
+        return toMessageResponse(m, mapReactions(reactions));
+    }
+
+    public MessageResponse toMessageResponse(Message m, List<MessageReactionResponse> reactions) {
         return MessageResponse.builder()
                 .id(m.getId())
                 .conversationId(m.getConversation().getId())
@@ -439,6 +654,13 @@ public class ChatService {
                 .messageType(m.getMessageType() == null ? MessageType.TEXT : m.getMessageType())
                 .attachmentUrls(m.getAttachmentUrls() == null ? List.of() : List.copyOf(m.getAttachmentUrls()))
                 .status(m.getStatus())
+                .replyToMessageId(m.getReplyToMessageId())
+                .replyToContent(m.getReplyToContent())
+                .replyToSenderName(m.getReplyToSenderName())
+                .isEdited(Boolean.TRUE.equals(m.getIsEdited()))
+                .editedAt(m.getEditedAt())
+                .isDeleted(Boolean.TRUE.equals(m.getIsDeleted()))
+                .reactions(reactions != null ? reactions : List.of())
                 .sentAt(m.getSentAt())
                 .deliveredAt(m.getDeliveredAt())
                 .readAt(m.getReadAt())

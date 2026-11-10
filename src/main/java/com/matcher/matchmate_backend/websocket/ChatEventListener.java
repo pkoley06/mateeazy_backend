@@ -56,6 +56,12 @@ public class ChatEventListener {
                 .messageType(event.messageType())
                 .attachmentUrls(event.attachmentUrls())
                 .status(event.status())
+                .replyToMessageId(event.replyToMessageId())
+                .replyToContent(event.replyToContent())
+                .replyToSenderName(event.replyToSenderName())
+                .isEdited(false)
+                .isDeleted(false)
+                .reactions(java.util.List.of())
                 .sentAt(event.sentAt())
                 .deliveredAt(event.status() == MessageStatus.DELIVERED ? event.sentAt() : null)
                 .readAt(null)
@@ -68,12 +74,6 @@ public class ChatEventListener {
                     event.messageId(), event.recipientId(), e.getMessage());
         }
 
-        // Also echoed back to the sender's own queue: this is the only acknowledgement a
-        // socket-originated send gets back (STOMP's SEND has no built-in reply), and the
-        // client relies on it both to resolve its optimistic local placeholder into the
-        // persisted message's real id, and to receive later delivered/read status updates
-        // against that id. Without this, a connected sender would never see an ack, assume
-        // the send failed, and re-submit over REST - persisting the same message twice.
         try {
             broadcaster.sendNewMessage(event.senderId(), payload);
         } catch (Exception e) {
@@ -87,6 +87,50 @@ public class ChatEventListener {
             notificationService.notifyRecipientOfChatMessage(
                     recipient, event.conversationId(), event.senderId(), sender.getFullName(),
                     sender.getAvatarUrl(), event.messageId(), event.previewText(), event.sentAt());
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onMessageUpdated(com.matcher.matchmate_backend.event.MessageUpdatedEvent event) {
+        Map<String, Object> update = new java.util.HashMap<>();
+        update.put("type", "MESSAGE_UPDATED");
+        update.put("conversationId", event.conversationId());
+        update.put("messageId", event.messageId());
+        update.put("content", event.content());
+        update.put("isEdited", event.isEdited());
+        update.put("editedAt", event.editedAt() != null ? event.editedAt().toString() : null);
+        update.put("isDeleted", event.isDeleted());
+        update.put("deletedAt", event.deletedAt() != null ? event.deletedAt().toString() : null);
+        update.put("reactions", event.reactions());
+
+        try {
+            broadcaster.sendStatusUpdate(event.participantOneId(), update);
+        } catch (Exception e) {
+            log.warn("[WS] Failed to send update to {}: {}", event.participantOneId(), e.getMessage());
+        }
+        try {
+            broadcaster.sendStatusUpdate(event.participantTwoId(), update);
+        } catch (Exception e) {
+            log.warn("[WS] Failed to send update to {}: {}", event.participantTwoId(), e.getMessage());
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onConversationRequestChanged(com.matcher.matchmate_backend.event.ConversationRequestEvent event) {
+        Map<String, Object> update = Map.of(
+                "type", "REQUEST_STATUS_CHANGED",
+                "conversationId", event.conversationId(),
+                "requestStatus", event.status().name()
+        );
+        try {
+            broadcaster.sendStatusUpdate(event.initiatorId(), update);
+        } catch (Exception e) {
+            log.warn("[WS] Failed to send request status to {}: {}", event.initiatorId(), e.getMessage());
+        }
+        try {
+            broadcaster.sendStatusUpdate(event.recipientId(), update);
+        } catch (Exception e) {
+            log.warn("[WS] Failed to send request status to {}: {}", event.recipientId(), e.getMessage());
         }
     }
 

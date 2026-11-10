@@ -77,6 +77,9 @@ public class DiscoveryService {
             Integer minRent,
             Integer maxRent,
             String listingTypeParam,
+            String roomTypeParam,
+            String furnishingStatusParam,
+            String sortByParam,
             int page,
             int size
     ) {
@@ -91,22 +94,36 @@ public class DiscoveryService {
         boolean smokingOnly = "NON_SMOKER_ONLY".equalsIgnoreCase(smokingParam);
         boolean dietOnly = "VEGETARIAN_ONLY".equalsIgnoreCase(dietParam);
         String listingType = normalizeListingType(listingTypeParam);
-        // Room Finder Mode users are "looking for a room", so they belong to the Flatmates segment
-        // (and to "All"); the Rooms segment stays listings-only.
-        boolean includeSeekers = listingType == null || ListingType.NEED_ROOM.name().equals(listingType);
+        String roomType = normalizeRoomType(roomTypeParam);
+        String furnishingStatus = normalizeFurnishingStatus(furnishingStatusParam);
+        String sortBy = normalizeSortBy(sortByParam);
 
-        // Room Finder Mode: only rooms open to the seeker's (chosen or own) gender. Off = no filter.
-        String seekerGender = Boolean.TRUE.equals(seeker.getIsLookingForRoom())
-                ? GenderPreference.sqlFilterValue(seeker.effectiveRoomFinderGender())
-                : null;
+        // Room Finder Mode users are "looking for a room", so they belong to the Flatmates segment
+        // (and to "All"); the Rooms segment stays listings-only. Room/furnishing filters also exclude seekers.
+        boolean includeSeekers = (listingType == null || ListingType.NEED_ROOM.name().equals(listingType))
+                && roomType == null && furnishingStatus == null;
+
+        // Mutual gender compatibility: a listing's gender_preference and a seeker candidate's room_finder_gender
+        // must both admit the viewer.
+        String viewerGender = GenderPreference.sqlFilterValue(GenderPreference.fromGender(seeker.getGender()));
+
+        boolean viewerHasLifestyle = matchingEngine.hasCompletedLifestyle(seeker);
+        String viewerSmoking = viewerHasLifestyle && seeker.getSmokingHabit() != null ? seeker.getSmokingHabit().name() : null;
+        double viewerCleanliness = viewerHasLifestyle ? matchingEngine.cleanlinessScore(seeker.getCleanlinessLevel()) : 0.5;
+        double viewerSleep = viewerHasLifestyle ? matchingEngine.sleepScore(seeker.getSleepSchedule()) : 0.5;
+        double viewerGuest = viewerHasLifestyle ? matchingEngine.guestScore(seeker.getGuestTolerance()) : 0.5;
+        double viewerDiet = viewerHasLifestyle ? matchingEngine.dietScore(seeker.getDietaryPreference()) : 0.4;
 
         List<DiscoveryCandidateProjection> candidates = listingRepository.findCandidateIdsWithDistance(
                 lat, lng, radiusMeters, currentUserId, gender, minAge, maxAge,
-                smokingOnly, dietOnly, minRent, maxRent, listingType, includeSeekers, seekerGender,
+                smokingOnly, dietOnly, minRent, maxRent, listingType, roomType, furnishingStatus,
+                includeSeekers, viewerGender, sortBy,
+                viewerHasLifestyle, viewerSmoking, viewerCleanliness, viewerSleep, viewerGuest, viewerDiet,
                 safeSize, safePage * safeSize);
         long totalElements = listingRepository.countCandidates(
                 lat, lng, radiusMeters, currentUserId, gender, minAge, maxAge,
-                smokingOnly, dietOnly, minRent, maxRent, listingType, includeSeekers, seekerGender);
+                smokingOnly, dietOnly, minRent, maxRent, listingType, roomType, furnishingStatus,
+                includeSeekers, viewerGender);
 
         List<DiscoveryCardResponse> content = buildCards(seeker, candidates);
 
@@ -262,5 +279,41 @@ public class DiscoveryService {
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid listingType filter: " + listingTypeParam);
         }
+    }
+
+    private String normalizeRoomType(String roomTypeParam) {
+        if (roomTypeParam == null || roomTypeParam.isBlank() || "ANY".equalsIgnoreCase(roomTypeParam)) {
+            return null;
+        }
+        try {
+            return com.matcher.matchmate_backend.model.enums.listing.RoomType.valueOf(roomTypeParam.toUpperCase()).name();
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid roomType filter: " + roomTypeParam);
+        }
+    }
+
+    private String normalizeFurnishingStatus(String furnishingParam) {
+        if (furnishingParam == null || furnishingParam.isBlank() || "ANY".equalsIgnoreCase(furnishingParam)) {
+            return null;
+        }
+        try {
+            return com.matcher.matchmate_backend.model.enums.listing.FurnishingStatus.valueOf(furnishingParam.toUpperCase()).name();
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid furnishingStatus filter: " + furnishingParam);
+        }
+    }
+
+    private String normalizeSortBy(String sortByParam) {
+        if (sortByParam == null || sortByParam.isBlank()) {
+            return "DISTANCE";
+        }
+        String upper = sortByParam.trim().toUpperCase();
+        return switch (upper) {
+            case "BEST_MATCH", "MATCH" -> "BEST_MATCH";
+            case "PRICE_LOW_HIGH", "PRICE_ASC", "RENT_ASC" -> "PRICE_LOW_HIGH";
+            case "PRICE_HIGH_LOW", "PRICE_DESC", "RENT_DESC" -> "PRICE_HIGH_LOW";
+            case "NEWEST", "RECENT" -> "NEWEST";
+            default -> "DISTANCE";
+        };
     }
 }

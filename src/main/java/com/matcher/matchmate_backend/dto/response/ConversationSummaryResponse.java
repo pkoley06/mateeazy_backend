@@ -22,5 +22,7 @@ public class ConversationSummaryResponse {
     private LastMessageSummary lastMessage;
     /** The viewer's own unread count for this conversation. */
     private Integer unreadCount;
+    private com.matcher.matchmate_backend.model.enums.chat.ConversationRequestStatus requestStatus;
+    private UUID initiatorUserId;
     private OffsetDateTime createdAt;
 }

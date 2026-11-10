@@ -49,6 +49,22 @@ public class ChatController {
                 principal.getUserId(), request.getOtherUserId(), request.getListingId()));
     }
 
+    @PostMapping("/conversations/{conversationId}/accept")
+    public ResponseEntity<ConversationSummaryResponse> acceptConversation(
+            @PathVariable UUID conversationId,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        return ResponseEntity.ok(chatService.acceptConversationRequest(conversationId, principal.getUserId()));
+    }
+
+    @PostMapping("/conversations/{conversationId}/reject")
+    public ResponseEntity<ConversationSummaryResponse> rejectConversation(
+            @PathVariable UUID conversationId,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        return ResponseEntity.ok(chatService.rejectConversationRequest(conversationId, principal.getUserId()));
+    }
+
     @GetMapping("/conversations/{conversationId}/messages")
     public ResponseEntity<PageResponse<MessageResponse>> getMessages(
             @PathVariable UUID conversationId,
@@ -69,7 +85,33 @@ public class ChatController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(chatService.sendMessage(conversationId, principal.getUserId(), request.getContent(),
-                        request.getMessageType(), request.getAttachmentUrls()));
+                        request.getMessageType(), request.getAttachmentUrls(), request.getReplyToMessageId()));
+    }
+
+    @PatchMapping("/messages/{messageId}")
+    public ResponseEntity<MessageResponse> editMessage(
+            @PathVariable UUID messageId,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @Valid @RequestBody com.matcher.matchmate_backend.dto.request.EditMessageRequest request
+    ) {
+        return ResponseEntity.ok(chatService.editMessage(messageId, principal.getUserId(), request.getContent()));
+    }
+
+    @DeleteMapping("/messages/{messageId}")
+    public ResponseEntity<MessageResponse> deleteMessage(
+            @PathVariable UUID messageId,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        return ResponseEntity.ok(chatService.deleteMessage(messageId, principal.getUserId()));
+    }
+
+    @PostMapping("/messages/{messageId}/reactions")
+    public ResponseEntity<MessageResponse> toggleReaction(
+            @PathVariable UUID messageId,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @Valid @RequestBody com.matcher.matchmate_backend.dto.request.ReactionRequest request
+    ) {
+        return ResponseEntity.ok(chatService.toggleReaction(messageId, principal.getUserId(), request.getEmoji()));
     }
 
     /** How many photos the user may still send today (the composer greys out the picker at 0). */

@@ -30,4 +30,6 @@ public class SendMessageRequest {
 
     @Size(max = 5, message = "At most 5 attachments per message")
     private List<String> attachmentUrls;
+
+    private java.util.UUID replyToMessageId;
 }

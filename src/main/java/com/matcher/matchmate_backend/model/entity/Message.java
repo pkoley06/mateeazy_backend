@@ -55,6 +55,33 @@ public class Message {
     @Builder.Default
     private MessageStatus status = MessageStatus.SENT;
 
+    @Column(name = "reply_to_message_id")
+    private UUID replyToMessageId;
+
+    @Column(name = "reply_to_content", columnDefinition = "TEXT")
+    private String replyToContent;
+
+    @Column(name = "reply_to_sender_name", length = 100)
+    private String replyToSenderName;
+
+    @Column(name = "is_edited", nullable = false)
+    @Builder.Default
+    private Boolean isEdited = false;
+
+    @Column(name = "edited_at")
+    private OffsetDateTime editedAt;
+
+    @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
+    @OneToMany(mappedBy = "message", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<MessageReaction> reactions = new ArrayList<>();
+
     @CreationTimestamp
     @Column(name = "sent_at", updatable = false)
     private OffsetDateTime sentAt;

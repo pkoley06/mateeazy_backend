@@ -65,7 +65,7 @@ public class MatchingHeuristicEngine {
         return new MatchResult(percentage, buildHighlights(seeker, candidate));
     }
 
-    private boolean hasCompletedLifestyle(AppUser user) {
+    public boolean hasCompletedLifestyle(AppUser user) {
         return user.getSmokingHabit() != null
                 && user.getDietaryPreference() != null
                 && user.getSleepSchedule() != null
@@ -73,7 +73,8 @@ public class MatchingHeuristicEngine {
                 && user.getGuestTolerance() != null;
     }
 
-    private double cleanlinessScore(CleanlinessLevel level) {
+    public double cleanlinessScore(CleanlinessLevel level) {
+        if (level == null) return 0.5;
         return switch (level) {
             case VERY_CLEAN -> 1.0;
             case MODERATE -> 0.5;
@@ -81,7 +82,8 @@ public class MatchingHeuristicEngine {
         };
     }
 
-    private double sleepScore(SleepSchedule schedule) {
+    public double sleepScore(SleepSchedule schedule) {
+        if (schedule == null) return 0.5;
         return switch (schedule) {
             case EARLY_BIRD -> 1.0;
             case FLEXIBLE -> 0.5;
@@ -89,7 +91,8 @@ public class MatchingHeuristicEngine {
         };
     }
 
-    private double guestScore(GuestTolerance tolerance) {
+    public double guestScore(GuestTolerance tolerance) {
+        if (tolerance == null) return 0.5;
         return switch (tolerance) {
             case FREQUENT -> 1.0;
             case OCCASIONAL -> 0.5;
@@ -97,7 +100,8 @@ public class MatchingHeuristicEngine {
         };
     }
 
-    private double dietScore(DietaryPreference preference) {
+    public double dietScore(DietaryPreference preference) {
+        if (preference == null) return 0.4;
         return switch (preference) {
             case VEGAN -> 1.0;
             case VEGETARIAN -> 0.8;

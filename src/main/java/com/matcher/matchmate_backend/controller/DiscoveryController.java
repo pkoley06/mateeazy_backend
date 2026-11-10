@@ -39,12 +39,15 @@ public class DiscoveryController {
             @RequestParam(required = false) Integer minRent,
             @RequestParam(required = false) Integer maxRent,
             @RequestParam(required = false) String listingType,
+            @RequestParam(required = false) String roomType,
+            @RequestParam(required = false) String furnishingStatus,
+            @RequestParam(defaultValue = "DISTANCE") String sortBy,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         DiscoveryFeedResponse response = discoveryService.getFeed(
                 principal.getUserId(), lat, lng, radiusKm, gender, minAge, maxAge, smoking, diet,
-                minRent, maxRent, listingType, page, size);
+                minRent, maxRent, listingType, roomType, furnishingStatus, sortBy, page, size);
         return ResponseEntity.ok(response);
     }
 }

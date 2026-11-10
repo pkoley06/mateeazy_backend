@@ -20,7 +20,10 @@ public record MessageSentEvent(
         MessageType messageType,
         List<String> attachmentUrls,
         OffsetDateTime sentAt,
-        MessageStatus status
+        MessageStatus status,
+        UUID replyToMessageId,
+        String replyToContent,
+        String replyToSenderName
 ) {
     /** What a notification / list preview shows for this message. */
     public String previewText() {

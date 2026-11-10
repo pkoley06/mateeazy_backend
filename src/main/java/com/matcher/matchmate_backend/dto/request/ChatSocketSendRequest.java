@@ -20,4 +20,5 @@ public class ChatSocketSendRequest {
     /** Defaults to TEXT when omitted. */
     private MessageType messageType;
     private List<String> attachmentUrls;
+    private UUID replyToMessageId;
 }
