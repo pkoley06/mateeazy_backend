@@ -218,6 +218,13 @@ class AdminIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.appName").value("MateEazy"));
 
+        // Public get app version without token
+        mockMvc.perform(get("/api/v1/app/version"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.latestBuildNumber").isNumber())
+                .andExpect(jsonPath("$.minSupportedBuildNumber").isNumber())
+                .andExpect(jsonPath("$.updateUrl").isString());
+
         // Admin update branding
         Map<String, Object> update = Map.of(
                 "appName", "MateEazy Pro",
