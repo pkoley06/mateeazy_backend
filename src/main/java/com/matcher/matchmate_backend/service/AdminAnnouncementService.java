@@ -79,7 +79,7 @@ public class AdminAnnouncementService {
                 .build());
 
         // Dispatch async broadcast to target users
-        dispatchBroadcast(saved.getId(), cleanTitle, cleanBody, cleanImage, cleanRoute, targetUsers);
+        dispatchBroadcast(saved.getId(), cleanTitle, cleanBody, cleanImage, cleanRoute, request.getType(), targetUsers);
 
         return toResponse(saved);
     }
@@ -99,14 +99,25 @@ public class AdminAnnouncementService {
             String body,
             String imageUrl,
             String route,
+            String requestedType,
             List<AppUser> users
     ) {
-        log.info("[Broadcast] Starting broadcast of festive event '{}' to {} users", title, users.size());
+        log.info("[Broadcast] Starting broadcast of announcement '{}' to {} users", title, users.size());
+
+        // Determine notification type
+        String type = (requestedType != null && !requestedType.isBlank()) ? requestedType.trim() : "FESTIVE_EVENT";
+        String lowerRoute = route != null ? route.toLowerCase() : "";
+        String lowerTitle = title != null ? title.toLowerCase() : "";
+        String lowerBody = body != null ? body.toLowerCase() : "";
+        if (lowerRoute.contains("play.google.com") || lowerRoute.startsWith("market://") || lowerRoute.equals("/update")
+                || lowerTitle.contains("update") || lowerBody.contains("update")) {
+            type = "APP_UPDATE";
+        }
 
         for (AppUser user : users) {
             try {
                 Map<String, String> data = new HashMap<>();
-                data.put("type", "FESTIVE_EVENT");
+                data.put("type", type);
                 data.put("title", title);
                 data.put("body", body);
                 if (imageUrl != null) {
@@ -114,13 +125,14 @@ public class AdminAnnouncementService {
                     data.put("image", imageUrl);
                 }
                 data.put("route", route);
+                data.put("actionRoute", route);
                 data.put("announcementId", announcementId.toString());
                 data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
 
                 // 1. Store in user notification inbox
                 UUID storedNotificationId = userNotificationService.record(
                         user.getId(),
-                        "FESTIVE_EVENT",
+                        type,
                         title,
                         body,
                         data
@@ -152,7 +164,7 @@ public class AdminAnnouncementService {
             }
         }
 
-        log.info("[Broadcast] Finished dispatching festive event '{}'", title);
+        log.info("[Broadcast] Finished dispatching announcement '{}' (type={})", title, type);
     }
 
     private AdminAnnouncementResponse toResponse(Announcement a) {

@@ -30,5 +30,9 @@ public class AdminBrandingResponse {
     private String developerUpiNote;
     private Integer deletionGracePeriodDays;
     private String activeIcon;
+    private Integer latestBuildNumber;
+    private Integer minSupportedBuildNumber;
+    private String releaseNotes;
+    private String updateUrl;
     private OffsetDateTime updatedAt;
 }

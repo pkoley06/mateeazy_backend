@@ -45,6 +45,10 @@ public class AdminBrandingService {
         if (request.getDeveloperUpiNote() != null) branding.setDeveloperUpiNote(blankToNull(request.getDeveloperUpiNote()));
         if (request.getDeletionGracePeriodDays() != null) branding.setDeletionGracePeriodDays(request.getDeletionGracePeriodDays());
         if (request.getActiveIcon() != null) branding.setActiveIcon(blankToNull(request.getActiveIcon()));
+        if (request.getLatestBuildNumber() != null) branding.setLatestBuildNumber(request.getLatestBuildNumber());
+        if (request.getMinSupportedBuildNumber() != null) branding.setMinSupportedBuildNumber(request.getMinSupportedBuildNumber());
+        if (request.getReleaseNotes() != null) branding.setReleaseNotes(blankToNull(request.getReleaseNotes()));
+        if (request.getUpdateUrl() != null) branding.setUpdateUrl(blankToNull(request.getUpdateUrl()));
 
         return toResponse(appBrandingRepository.save(branding));
     }
@@ -56,6 +60,10 @@ public class AdminBrandingService {
      */
     private static String blankToNull(String value) {
         return (value == null || value.isBlank()) ? null : value.trim();
+    }
+
+    public AppBranding getEntity() {
+        return getOrCreateDefault();
     }
 
     private AppBranding getOrCreateDefault() {
@@ -71,6 +79,10 @@ public class AdminBrandingService {
                     .developerSupportNote("Made with ❤️ for flatmates everywhere. If MateEazy helped you find a home, buy the developer a coffee!")
                     .deletionGracePeriodDays(30)
                     .activeIcon("default")
+                    .latestBuildNumber(7)
+                    .minSupportedBuildNumber(5)
+                    .releaseNotes("New features, bug fixes, and performance improvements.")
+                    .updateUrl("https://play.google.com/store/apps/details?id=com.mateeazy.app")
                     .build();
             return appBrandingRepository.save(defaults);
         });
@@ -96,6 +108,10 @@ public class AdminBrandingService {
                 .developerUpiNote(branding.getDeveloperUpiNote())
                 .deletionGracePeriodDays(branding.getDeletionGracePeriodDays())
                 .activeIcon(branding.getActiveIcon() != null ? branding.getActiveIcon() : "default")
+                .latestBuildNumber(branding.getLatestBuildNumber() != null ? branding.getLatestBuildNumber() : 7)
+                .minSupportedBuildNumber(branding.getMinSupportedBuildNumber() != null ? branding.getMinSupportedBuildNumber() : 5)
+                .releaseNotes(branding.getReleaseNotes() != null ? branding.getReleaseNotes() : "New features, bug fixes, and performance improvements.")
+                .updateUrl(branding.getUpdateUrl() != null ? branding.getUpdateUrl() : "https://play.google.com/store/apps/details?id=com.mateeazy.app")
                 .updatedAt(branding.getUpdatedAt())
                 .build();
     }

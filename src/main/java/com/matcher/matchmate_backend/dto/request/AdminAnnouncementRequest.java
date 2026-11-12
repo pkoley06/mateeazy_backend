@@ -28,6 +28,12 @@ public class AdminAnnouncementRequest {
     private String actionRoute;
 
     /**
+     * Optional notification type (e.g. "APP_UPDATE", "FESTIVE_EVENT", "ANNOUNCEMENT").
+     * Defaults to auto-detecting based on actionRoute/title or "FESTIVE_EVENT".
+     */
+    private String type;
+
+    /**
      * If true, broadcasts to all active users. If false, targets only the users in userIds.
      */
     private Boolean broadcastAll;

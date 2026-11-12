@@ -60,4 +60,13 @@ public class AdminBrandingUpdateRequest {
 
     @Size(max = 50, message = "Active icon cannot exceed 50 characters")
     private String activeIcon;
+
+    private Integer latestBuildNumber;
+
+    private Integer minSupportedBuildNumber;
+
+    private String releaseNotes;
+
+    @Size(max = 500, message = "Update URL cannot exceed 500 characters")
+    private String updateUrl;
 }

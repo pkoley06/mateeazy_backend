@@ -430,7 +430,9 @@ public class NotificationService {
             String preview = text.length() > 60 ? text.substring(0, 57) + "…" : text;
             String name = reactorName != null && !reactorName.isBlank() ? reactorName : "Someone";
             String title = name + " reacted " + emoji;
-            String body = preview.isEmpty() ? "Reacted " + emoji + " to your message" : preview;
+            String body = preview.isEmpty()
+                    ? "Reacted " + emoji + " to your message"
+                    : "Reacted " + emoji + " to: \"" + preview + "\"";
 
             Map<String, String> data = new HashMap<>();
             data.put("type", "CHAT_MESSAGE_REACTION");
@@ -438,12 +440,28 @@ public class NotificationService {
             data.put("reactor_id", String.valueOf(reactorId));
             data.put("reactor_name", name);
             data.put("reactor_avatar_url", reactorAvatarUrl != null ? reactorAvatarUrl : "");
+            data.put("sender_id", String.valueOf(reactorId));
+            data.put("sender_name", name);
+            data.put("sender_avatar_url", reactorAvatarUrl != null ? reactorAvatarUrl : "");
             data.put("message_id", String.valueOf(messageId));
+            data.put("message_text", body);
+            data.put("original_message_text", text);
             data.put("emoji", emoji);
+            data.put("title", title);
+            data.put("body", body);
             data.put("route", "/chat/" + conversationId);
             data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
 
-            storeAndPush(recipient, title, body, data);
+            try {
+                Map<String, Object> wsPayload = new HashMap<>(data);
+                wsPayload.put("title", title);
+                wsPayload.put("body", body);
+                messagingTemplate.convertAndSendToUser(recipient.getId().toString(), "/queue/notifications", wsPayload);
+            } catch (Exception e) {
+                log.debug("[WebSocket] Could not push reaction notification to user #{}: {}", recipient.getId(), e.getMessage());
+            }
+
+            sendChatPush(recipient.getFcmToken(), title, body, data, String.valueOf(conversationId));
         } catch (Exception e) {
             log.error("[FCM] Error notifying user #{} about a reaction in conversation #{}: {}",
                     recipient.getId(), conversationId, e.getMessage());

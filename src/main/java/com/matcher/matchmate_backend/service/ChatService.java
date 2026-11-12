@@ -401,9 +401,15 @@ public class ChatService {
                 message.getIsDeleted(), message.getDeletedAt(), reactions));
 
         if (reactionAdded && !message.getSender().getId().equals(userId)) {
+            String previewContent = message.getContent();
+            if ((previewContent == null || previewContent.isBlank()) && message.getMessageType() == MessageType.IMAGE) {
+                previewContent = "📷 Photo";
+            } else if ((previewContent == null || previewContent.isBlank()) && message.getMessageType() == MessageType.GIF) {
+                previewContent = "GIF";
+            }
             eventPublisher.publishEvent(new MessageReactedEvent(
                     message.getConversation().getId(), message.getId(), userId,
-                    message.getSender().getId(), trimmedEmoji, message.getContent()));
+                    message.getSender().getId(), trimmedEmoji, previewContent));
         }
 
         return toMessageResponse(message, reactions);

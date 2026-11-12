@@ -83,6 +83,26 @@ public class AppBranding {
     @Builder.Default
     private String activeIcon = "default";
 
+    /** Latest published build number on Google Play (e.g. 7). */
+    @Column(name = "latest_build_number", nullable = false)
+    @Builder.Default
+    private Integer latestBuildNumber = 7;
+
+    /** Minimum supported build number required to use the app (e.g. 5). Builds below this are force-updated. */
+    @Column(name = "min_supported_build_number", nullable = false)
+    @Builder.Default
+    private Integer minSupportedBuildNumber = 5;
+
+    /** Short release notes to display in the in-app update sheet. */
+    @Column(name = "release_notes", columnDefinition = "TEXT")
+    @Builder.Default
+    private String releaseNotes = "New features, bug fixes, and performance improvements.";
+
+    /** Deep-link or Play Store URL to open when user taps "Update now". */
+    @Column(name = "update_url", length = 500)
+    @Builder.Default
+    private String updateUrl = "https://play.google.com/store/apps/details?id=com.mateeazy.app";
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;

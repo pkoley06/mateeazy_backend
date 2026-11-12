@@ -40,6 +40,7 @@ public class SecurityConfig {
                         .requestMatchers("/health").permitAll()             // Unauthenticated health check
                         .requestMatchers("/api/v1/auth/**").permitAll()     // Public login handshake
                         .requestMatchers("/api/v1/branding/**").permitAll() // Public branding / config
+                        .requestMatchers("/api/v1/app/**").permitAll()      // Public app version info
                         // Local-disk storage fallback's file-serving route stands in for what
                         // would otherwise be a publicly readable bucket object URL.
                         .requestMatchers("/api/v1/uploads/files/**").permitAll()
