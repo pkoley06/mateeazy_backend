@@ -96,6 +96,10 @@ public class AppUser {
     @Builder.Default
     private Boolean isSuspended = false;
 
+    @Column(name = "is_identity_verified", nullable = false)
+    @Builder.Default
+    private Boolean isIdentityVerified = false;
+
     @Column(name = "suspended_reason", length = 255)
     private String suspendedReason;
 
