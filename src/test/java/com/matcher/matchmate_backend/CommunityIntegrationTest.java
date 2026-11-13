@@ -21,6 +21,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,6 +69,7 @@ class CommunityIntegrationTest {
                 .fullName("Pritam Koley")
                 .phoneNumber("+919999988888")
                 .gender(Gender.MALE)
+                .dateOfBirth(LocalDate.of(1998, 1, 1))
                 .isActive(true)
                 .isSuspended(false)
                 .build());
