@@ -46,6 +46,8 @@ public class NotificationPreferencesService {
         if (request.getNotifyMessages() != null) prefs.setNotifyMessages(request.getNotifyMessages());
         if (request.getNotifySeekersNearby() != null) prefs.setNotifySeekersNearby(request.getNotifySeekersNearby());
         if (request.getNotifyRoomsNearby() != null) prefs.setNotifyRoomsNearby(request.getNotifyRoomsNearby());
+        if (request.getNotifyFollowers() != null) prefs.setNotifyFollowers(request.getNotifyFollowers());
+        if (request.getNotifyStatusReactions() != null) prefs.setNotifyStatusReactions(request.getNotifyStatusReactions());
         return NotificationPreferencesResponse.from(preferencesRepository.save(prefs));
     }
 

@@ -6,6 +6,7 @@ import com.matcher.matchmate_backend.dto.response.ListingCommentLikeStatusRespon
 import com.matcher.matchmate_backend.dto.response.ListingCommentResponse;
 import com.matcher.matchmate_backend.dto.response.ListingLikeStatusResponse;
 import com.matcher.matchmate_backend.dto.response.ListingResponse;
+import com.matcher.matchmate_backend.dto.response.UserSummaryResponse;
 import com.matcher.matchmate_backend.event.ListingCommentChangedEvent;
 import com.matcher.matchmate_backend.event.ListingCommentCreatedEvent;
 import com.matcher.matchmate_backend.event.ListingLikedEvent;
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Likes and comments on rooms. Writes publish application events that are relayed after
@@ -48,6 +50,7 @@ public class ListingInteractionService {
     private final AppUserRepository userRepository;
     private final ListingService listingService;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserFollowService userFollowService;
 
     public ListingInteractionService(
             ListingLikeRepository likeRepository,
@@ -56,7 +59,8 @@ public class ListingInteractionService {
             ListingRepository listingRepository,
             AppUserRepository userRepository,
             ListingService listingService,
-            ApplicationEventPublisher eventPublisher
+            ApplicationEventPublisher eventPublisher,
+            UserFollowService userFollowService
     ) {
         this.likeRepository = likeRepository;
         this.commentRepository = commentRepository;
@@ -65,6 +69,17 @@ public class ListingInteractionService {
         this.userRepository = userRepository;
         this.listingService = listingService;
         this.eventPublisher = eventPublisher;
+        this.userFollowService = userFollowService;
+    }
+
+    public List<UserSummaryResponse> getListingLikers(UUID listingId, UUID currentUserId) {
+        if (!listingRepository.existsById(listingId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found");
+        }
+        List<AppUser> likers = likeRepository.findLikersByListingId(listingId);
+        return likers.stream()
+                .map(u -> userFollowService.toUserSummary(u, currentUserId))
+                .collect(Collectors.toList());
     }
 
     // ------------------------------------------------------------------ room likes

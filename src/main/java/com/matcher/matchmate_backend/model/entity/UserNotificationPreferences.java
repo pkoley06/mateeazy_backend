@@ -47,6 +47,14 @@ public class UserNotificationPreferences {
     @Builder.Default
     private Boolean notifyRoomsNearby = true;
 
+    @Column(name = "notify_followers", nullable = false)
+    @Builder.Default
+    private Boolean notifyFollowers = true;
+
+    @Column(name = "notify_status_reactions", nullable = false)
+    @Builder.Default
+    private Boolean notifyStatusReactions = true;
+
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;

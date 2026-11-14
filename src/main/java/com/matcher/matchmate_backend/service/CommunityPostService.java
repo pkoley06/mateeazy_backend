@@ -2,9 +2,11 @@ package com.matcher.matchmate_backend.service;
 
 import com.matcher.matchmate_backend.dto.request.CommunityCommentCreateRequest;
 import com.matcher.matchmate_backend.dto.request.CommunityPostCreateRequest;
+import com.matcher.matchmate_backend.dto.request.CommunityPostUpdateRequest;
 import com.matcher.matchmate_backend.dto.response.CommunityCommentResponse;
 import com.matcher.matchmate_backend.dto.response.CommunityLikeToggleResponse;
 import com.matcher.matchmate_backend.dto.response.CommunityPostResponse;
+import com.matcher.matchmate_backend.dto.response.UserSummaryResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import com.matcher.matchmate_backend.model.entity.AppUser;
@@ -12,6 +14,7 @@ import com.matcher.matchmate_backend.model.entity.CommunityComment;
 import com.matcher.matchmate_backend.model.entity.CommunityPost;
 import com.matcher.matchmate_backend.model.entity.CommunityPostLike;
 import com.matcher.matchmate_backend.model.entity.Listing;
+import com.matcher.matchmate_backend.model.entity.UserHiddenPost;
 import com.matcher.matchmate_backend.model.enums.community.CommunityPostCategory;
 import com.matcher.matchmate_backend.model.enums.community.CommunityPostStatus;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
@@ -19,16 +22,20 @@ import com.matcher.matchmate_backend.repository.CommunityCommentRepository;
 import com.matcher.matchmate_backend.repository.CommunityPostLikeRepository;
 import com.matcher.matchmate_backend.repository.CommunityPostRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
+import com.matcher.matchmate_backend.repository.UserHiddenPostRepository;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -43,19 +50,25 @@ public class CommunityPostService {
     private final CommunityCommentRepository communityCommentRepository;
     private final AppUserRepository appUserRepository;
     private final ListingRepository listingRepository;
+    private final UserHiddenPostRepository userHiddenPostRepository;
+    private final UserFollowService userFollowService;
 
     public CommunityPostService(
             CommunityPostRepository communityPostRepository,
             CommunityPostLikeRepository communityPostLikeRepository,
             CommunityCommentRepository communityCommentRepository,
             AppUserRepository appUserRepository,
-            ListingRepository listingRepository
+            ListingRepository listingRepository,
+            UserHiddenPostRepository userHiddenPostRepository,
+            UserFollowService userFollowService
     ) {
         this.communityPostRepository = communityPostRepository;
         this.communityPostLikeRepository = communityPostLikeRepository;
         this.communityCommentRepository = communityCommentRepository;
         this.appUserRepository = appUserRepository;
         this.listingRepository = listingRepository;
+        this.userHiddenPostRepository = userHiddenPostRepository;
+        this.userFollowService = userFollowService;
     }
 
     @Transactional(readOnly = true)
@@ -85,14 +98,27 @@ public class CommunityPostService {
                 pageable
         );
 
-        List<UUID> postIds = postsPage.getContent().stream().map(CommunityPost::getId).toList();
+        Set<UUID> hiddenPostIds = (currentUserId != null)
+                ? userHiddenPostRepository.findByUserId(currentUserId).stream()
+                    .map(h -> h.getPost().getId()).collect(Collectors.toSet())
+                : Collections.emptySet();
+
+        List<CommunityPost> filteredList = postsPage.getContent().stream()
+                .filter(p -> !hiddenPostIds.contains(p.getId()))
+                .toList();
+
+        List<UUID> postIds = filteredList.stream().map(CommunityPost::getId).toList();
         Set<UUID> likedPostIds = (currentUserId != null && !postIds.isEmpty())
                 ? communityPostLikeRepository.findByUserIdAndPostIdIn(currentUserId, postIds).stream()
                     .map(CommunityPostLike::getPostId).collect(Collectors.toSet())
                 : Collections.emptySet();
 
         final Point finalUserLocation = userLocation;
-        return postsPage.map(post -> toPostResponse(post, likedPostIds.contains(post.getId()), finalUserLocation));
+        List<CommunityPostResponse> responses = filteredList.stream()
+                .map(post -> toPostResponse(post, likedPostIds.contains(post.getId()), finalUserLocation))
+                .toList();
+
+        return new PageImpl<>(responses, pageable, postsPage.getTotalElements());
     }
 
     @Transactional(readOnly = true)
@@ -139,6 +165,64 @@ public class CommunityPostService {
 
         CommunityPost saved = communityPostRepository.save(post);
         return toPostResponse(saved, false, location);
+    }
+
+    @Transactional
+    public CommunityPostResponse updatePost(UUID postId, UUID currentUserId, CommunityPostUpdateRequest request) {
+        CommunityPost post = communityPostRepository.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Community post not found: " + postId));
+
+        if (!post.getAuthor().getId().equals(currentUserId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only edit your own posts");
+        }
+
+        // 24-hour edit limit rule
+        if (post.getCreatedAt() != null && Duration.between(post.getCreatedAt(), OffsetDateTime.now()).toHours() >= 24) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Posts can only be edited within 24 hours of publishing");
+        }
+
+        post.setTitle(request.getTitle().trim());
+        post.setContent(request.getContent().trim());
+        if (request.getImageUrls() != null) {
+            post.setImageUrls(request.getImageUrls());
+        }
+
+        if (request.getTaggedListingId() != null) {
+            Listing tagged = listingRepository.findById(request.getTaggedListingId()).orElse(null);
+            post.setTaggedListing(tagged);
+        } else {
+            post.setTaggedListing(null);
+        }
+
+        CommunityPost saved = communityPostRepository.save(post);
+        boolean isLiked = communityPostLikeRepository.existsByPostIdAndUserId(postId, currentUserId);
+        return toPostResponse(saved, isLiked, null);
+    }
+
+    @Transactional
+    public void hidePost(UUID postId, UUID currentUserId) {
+        CommunityPost post = communityPostRepository.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Community post not found: " + postId));
+        AppUser user = appUserRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (!userHiddenPostRepository.existsByUserIdAndPostId(currentUserId, postId)) {
+            userHiddenPostRepository.save(UserHiddenPost.builder()
+                    .user(user)
+                    .post(post)
+                    .build());
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserSummaryResponse> getLikers(UUID postId, UUID currentUserId) {
+        if (!communityPostRepository.existsById(postId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Community post not found: " + postId);
+        }
+        List<AppUser> likers = communityPostLikeRepository.findLikersByPostId(postId);
+        return likers.stream()
+                .map(u -> userFollowService.toUserSummary(u, currentUserId))
+                .collect(Collectors.toList());
     }
 
     @Transactional

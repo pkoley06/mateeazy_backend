@@ -18,4 +18,6 @@ public class NotificationPreferencesRequest {
     private Boolean notifyMessages;
     private Boolean notifySeekersNearby;
     private Boolean notifyRoomsNearby;
+    private Boolean notifyFollowers;
+    private Boolean notifyStatusReactions;
 }

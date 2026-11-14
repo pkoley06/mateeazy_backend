@@ -1,5 +1,6 @@
 package com.matcher.matchmate_backend.repository;
 
+import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.CommunityPostLike;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -18,4 +19,7 @@ public interface CommunityPostLikeRepository extends JpaRepository<CommunityPost
     void deleteByPostIdAndUserId(@Param("postId") UUID postId, @Param("userId") UUID userId);
 
     List<CommunityPostLike> findByUserIdAndPostIdIn(UUID userId, Collection<UUID> postIds);
+
+    @Query("SELECT l.user FROM CommunityPostLike l WHERE l.postId = :postId ORDER BY l.createdAt DESC")
+    List<AppUser> findLikersByPostId(@Param("postId") UUID postId);
 }

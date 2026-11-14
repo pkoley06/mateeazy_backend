@@ -164,6 +164,10 @@ public class AppUser {
     @Column(name = "last_seen_at")
     private OffsetDateTime lastSeenAt;
 
+    @Column(name = "direct_follow_enabled", nullable = false)
+    @Builder.Default
+    private Boolean directFollowEnabled = true;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

@@ -42,6 +42,15 @@ public class ListingInteractionController {
         return ResponseEntity.ok(interactionService.getLikeStatus(principal.getUserId(), id));
     }
 
+    @GetMapping("/{id}/likes")
+    public ResponseEntity<List<com.matcher.matchmate_backend.dto.response.UserSummaryResponse>> getListingLikers(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        UUID currentUserId = principal != null ? principal.getUserId() : null;
+        return ResponseEntity.ok(interactionService.getListingLikers(id, currentUserId));
+    }
+
     @GetMapping("/liked")
     public ResponseEntity<List<ListingResponse>> getLikedListings(
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal

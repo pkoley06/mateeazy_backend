@@ -2,9 +2,11 @@ package com.matcher.matchmate_backend.controller;
 
 import com.matcher.matchmate_backend.dto.request.CommunityCommentCreateRequest;
 import com.matcher.matchmate_backend.dto.request.CommunityPostCreateRequest;
+import com.matcher.matchmate_backend.dto.request.CommunityPostUpdateRequest;
 import com.matcher.matchmate_backend.dto.response.CommunityCommentResponse;
 import com.matcher.matchmate_backend.dto.response.CommunityLikeToggleResponse;
 import com.matcher.matchmate_backend.dto.response.CommunityPostResponse;
+import com.matcher.matchmate_backend.dto.response.UserSummaryResponse;
 import com.matcher.matchmate_backend.model.enums.community.CommunityPostCategory;
 import com.matcher.matchmate_backend.security.AuthenticatedUserPrincipal;
 import com.matcher.matchmate_backend.service.CommunityPostService;
@@ -17,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -70,6 +73,15 @@ public class CommunityPostController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PutMapping("/posts/{id}")
+    public ResponseEntity<CommunityPostResponse> updatePost(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @Valid @RequestBody CommunityPostUpdateRequest request
+    ) {
+        return ResponseEntity.ok(communityPostService.updatePost(id, principal.getUserId(), request));
+    }
+
     @DeleteMapping("/posts/{id}")
     public ResponseEntity<Void> deletePost(
             @PathVariable UUID id,
@@ -77,6 +89,24 @@ public class CommunityPostController {
     ) {
         communityPostService.deletePost(id, principal.getUserId());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/posts/{id}/hide")
+    public ResponseEntity<Void> hidePost(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        communityPostService.hidePost(id, principal.getUserId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/posts/{id}/likes")
+    public ResponseEntity<List<UserSummaryResponse>> getPostLikers(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        UUID currentUserId = principal != null ? principal.getUserId() : null;
+        return ResponseEntity.ok(communityPostService.getLikers(id, currentUserId));
     }
 
     @PostMapping("/posts/{id}/like")

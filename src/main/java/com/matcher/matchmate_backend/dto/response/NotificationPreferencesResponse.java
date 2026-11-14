@@ -18,6 +18,8 @@ public class NotificationPreferencesResponse {
     private boolean notifyMessages;
     private boolean notifySeekersNearby;
     private boolean notifyRoomsNearby;
+    private boolean notifyFollowers;
+    private boolean notifyStatusReactions;
     private OffsetDateTime updatedAt;
 
     public static NotificationPreferencesResponse from(UserNotificationPreferences prefs) {
@@ -26,6 +28,8 @@ public class NotificationPreferencesResponse {
                 .notifyMessages(Boolean.TRUE.equals(prefs.getNotifyMessages()))
                 .notifySeekersNearby(Boolean.TRUE.equals(prefs.getNotifySeekersNearby()))
                 .notifyRoomsNearby(Boolean.TRUE.equals(prefs.getNotifyRoomsNearby()))
+                .notifyFollowers(Boolean.TRUE.equals(prefs.getNotifyFollowers()))
+                .notifyStatusReactions(Boolean.TRUE.equals(prefs.getNotifyStatusReactions()))
                 .updatedAt(prefs.getUpdatedAt())
                 .build();
     }

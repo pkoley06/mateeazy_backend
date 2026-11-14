@@ -26,6 +26,10 @@ public class CommunityPostLike {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    private AppUser user;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

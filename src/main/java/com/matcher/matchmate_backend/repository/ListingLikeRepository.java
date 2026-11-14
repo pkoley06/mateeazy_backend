@@ -28,6 +28,9 @@ public interface ListingLikeRepository extends JpaRepository<ListingLike, Listin
     @Query("SELECT l.listing FROM ListingLike l WHERE l.userId = :userId ORDER BY l.createdAt DESC")
     List<Listing> findLikedListingsByUserId(@Param("userId") UUID userId);
 
+    @Query("SELECT l.user FROM ListingLike l WHERE l.listingId = :listingId ORDER BY l.createdAt DESC")
+    List<com.matcher.matchmate_backend.model.entity.AppUser> findLikersByListingId(@Param("listingId") UUID listingId);
+
     /** AccountPurgeService: likes the user placed on OTHER users' listings. */
     @Modifying
     @Query("DELETE FROM ListingLike l WHERE l.userId = :userId")
