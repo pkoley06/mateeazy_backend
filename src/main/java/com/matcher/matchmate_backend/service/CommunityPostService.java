@@ -11,12 +11,14 @@ import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.CommunityComment;
 import com.matcher.matchmate_backend.model.entity.CommunityPost;
 import com.matcher.matchmate_backend.model.entity.CommunityPostLike;
+import com.matcher.matchmate_backend.model.entity.Listing;
 import com.matcher.matchmate_backend.model.enums.community.CommunityPostCategory;
 import com.matcher.matchmate_backend.model.enums.community.CommunityPostStatus;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
 import com.matcher.matchmate_backend.repository.CommunityCommentRepository;
 import com.matcher.matchmate_backend.repository.CommunityPostLikeRepository;
 import com.matcher.matchmate_backend.repository.CommunityPostRepository;
+import com.matcher.matchmate_backend.repository.ListingRepository;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
@@ -40,17 +42,20 @@ public class CommunityPostService {
     private final CommunityPostLikeRepository communityPostLikeRepository;
     private final CommunityCommentRepository communityCommentRepository;
     private final AppUserRepository appUserRepository;
+    private final ListingRepository listingRepository;
 
     public CommunityPostService(
             CommunityPostRepository communityPostRepository,
             CommunityPostLikeRepository communityPostLikeRepository,
             CommunityCommentRepository communityCommentRepository,
-            AppUserRepository appUserRepository
+            AppUserRepository appUserRepository,
+            ListingRepository listingRepository
     ) {
         this.communityPostRepository = communityPostRepository;
         this.communityPostLikeRepository = communityPostLikeRepository;
         this.communityCommentRepository = communityCommentRepository;
         this.appUserRepository = appUserRepository;
+        this.listingRepository = listingRepository;
     }
 
     @Transactional(readOnly = true)
@@ -110,8 +115,14 @@ public class CommunityPostService {
 
         Point location = GEOMETRY_FACTORY.createPoint(new Coordinate(request.getLongitude(), request.getLatitude()));
 
+        Listing taggedListing = null;
+        if (request.getTaggedListingId() != null) {
+            taggedListing = listingRepository.findById(request.getTaggedListingId()).orElse(null);
+        }
+
         CommunityPost post = CommunityPost.builder()
                 .author(author)
+                .taggedListing(taggedListing)
                 .category(request.getCategory())
                 .title(request.getTitle().trim())
                 .content(request.getContent().trim())
@@ -233,7 +244,7 @@ public class CommunityPostService {
 
         AppUser author = post.getAuthor();
 
-        return CommunityPostResponse.builder()
+        CommunityPostResponse.CommunityPostResponseBuilder builder = CommunityPostResponse.builder()
                 .id(post.getId())
                 .category(post.getCategory())
                 .title(post.getTitle())
@@ -256,8 +267,17 @@ public class CommunityPostService {
                 .authorName(author.getFullName())
                 .authorAvatarUrl(author.getAvatarUrl())
                 .authorIsVerified(Boolean.TRUE.equals(author.getIsIdentityVerified()))
-                .authorOccupation(author.getOccupationTitle())
-                .build();
+                .authorOccupation(author.getOccupationTitle());
+
+        if (post.getTaggedListing() != null) {
+            Listing l = post.getTaggedListing();
+            builder.taggedListingId(l.getId())
+                   .taggedListingTitle(l.getTitle())
+                   .taggedListingRent(l.getRentAmount())
+                   .taggedListingCoverUrl(l.getPhotoUrls() != null && !l.getPhotoUrls().isEmpty() ? l.getPhotoUrls().get(0) : null);
+        }
+
+        return builder.build();
     }
 
     private CommunityCommentResponse toCommentResponse(CommunityComment comment) {

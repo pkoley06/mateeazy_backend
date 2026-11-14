@@ -30,6 +30,10 @@ public class CommunityPost {
     @JoinColumn(name = "author_id", nullable = false)
     private AppUser author;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tagged_listing_id")
+    private Listing taggedListing;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "category", nullable = false, length = 30)
     private CommunityPostCategory category;

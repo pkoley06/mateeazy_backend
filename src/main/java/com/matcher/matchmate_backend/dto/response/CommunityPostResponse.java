@@ -41,4 +41,10 @@ public class CommunityPostResponse {
     private String authorAvatarUrl;
     private Boolean authorIsVerified;
     private String authorOccupation;
+
+    // Tagged Listing
+    private UUID taggedListingId;
+    private String taggedListingTitle;
+    private Integer taggedListingRent;
+    private String taggedListingCoverUrl;
 }
