@@ -346,6 +346,7 @@ public class UserService {
                 .missingLifestyleFields(missingLifestyleFields(user))
                 .isRoomSeeker(user.getIsLookingForRoom() != null ? user.getIsLookingForRoom() : Boolean.FALSE)
                 .roomFinderGender(user.effectiveRoomFinderGender())
+                .directFollowEnabled(user.getDirectFollowEnabled() != null ? user.getDirectFollowEnabled() : Boolean.TRUE)
                 .build();
     }
 

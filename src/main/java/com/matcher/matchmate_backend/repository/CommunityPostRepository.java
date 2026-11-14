@@ -53,4 +53,19 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, UU
     @Modifying
     @Query("UPDATE CommunityPost p SET p.commentsCount = GREATEST(0, p.commentsCount + :delta) WHERE p.id = :postId")
     void updateCommentsCount(@Param("postId") UUID postId, @Param("delta") int delta);
+
+    @Query("""
+        SELECT p FROM CommunityPost p
+        LEFT JOIN p.author u
+        WHERE (:search IS NULL OR LOWER(p.content) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(p.title) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%')))
+          AND (:category IS NULL OR p.category = :category)
+        ORDER BY p.createdAt DESC
+    """)
+    Page<CommunityPost> searchForAdmin(
+        @Param("search") String search,
+        @Param("category") com.matcher.matchmate_backend.model.enums.community.CommunityPostCategory category,
+        Pageable pageable
+    );
 }

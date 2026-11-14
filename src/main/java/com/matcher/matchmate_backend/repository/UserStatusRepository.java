@@ -15,4 +15,9 @@ public interface UserStatusRepository extends JpaRepository<UserStatus, UUID> {
     List<UserStatus> findByUserIdAndExpiresAtAfterOrderByCreatedAtAsc(UUID userId, OffsetDateTime now);
 
     List<UserStatus> findByUserIdInAndExpiresAtAfterOrderByCreatedAtAsc(Collection<UUID> userIds, OffsetDateTime now);
+
+    org.springframework.data.domain.Page<UserStatus> findByExpiresAtAfterOrderByCreatedAtDesc(
+            OffsetDateTime now,
+            org.springframework.data.domain.Pageable pageable
+    );
 }

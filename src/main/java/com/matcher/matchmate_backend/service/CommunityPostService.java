@@ -316,7 +316,7 @@ public class CommunityPostService {
         communityPostRepository.updateCommentsCount(postId, -1);
     }
 
-    private CommunityPostResponse toPostResponse(CommunityPost post, boolean isLikedByMe, Point fromLocation) {
+    public CommunityPostResponse toPostResponse(CommunityPost post, boolean isLikedByMe, Point fromLocation) {
         Point loc = post.getLocation();
         Double lat = loc != null ? loc.getY() : null;
         Double lng = loc != null ? loc.getX() : null;

@@ -141,7 +141,7 @@ public class UserStatusService {
         userStatusViewRepository.save(view);
     }
 
-    private UserStatusResponse toStatusResponse(UserStatus status, UUID currentUserId) {
+    public UserStatusResponse toStatusResponse(UserStatus status, UUID currentUserId) {
         boolean isViewedByMe = false;
         boolean isSelf = currentUserId != null && currentUserId.equals(status.getUser().getId());
         if (currentUserId != null) {
