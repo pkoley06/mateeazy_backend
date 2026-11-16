@@ -80,7 +80,8 @@ public class UserController {
             @Valid @RequestBody RoomSeekerRequest request
     ) {
         return ResponseEntity.ok(userService.updateRoomSeeker(
-                principal.getUserId(), request.getIsRoomSeeker(), request.getRoomFinderGender()));
+                principal.getUserId(), request.getIsRoomSeeker(), request.getRoomFinderGender(),
+                request.getRoomFinderGoal()));
     }
 
     /**

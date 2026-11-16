@@ -47,6 +47,14 @@ public class UserStatusController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/{id}/viewers")
+    public ResponseEntity<List<com.matcher.matchmate_backend.dto.response.UserSummaryResponse>> getViewers(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        return ResponseEntity.ok(userStatusService.getViewers(id, principal.getUserId()));
+    }
+
     @PostMapping("/{id}/view")
     public ResponseEntity<Void> recordView(
             @PathVariable UUID id,

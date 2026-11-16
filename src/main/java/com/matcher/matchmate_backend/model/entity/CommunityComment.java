@@ -29,6 +29,16 @@ public class CommunityComment {
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;
 
+    /** The comment this one replies to; null for a top-level comment. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private CommunityComment parent;
+
+    /** 0 = top-level, 1 = reply, 2 = reply to a reply (the deepest level). */
+    @Column(name = "depth", nullable = false)
+    @Builder.Default
+    private short depth = 0;
+
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 

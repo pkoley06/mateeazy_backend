@@ -88,6 +88,9 @@ public class SearchPreferencesService {
             user.setSearchRadiusKm(request.getSearchRadiusKm());
         }
         if (request.getIsLookingForRoom() != null) {
+            if (request.getIsLookingForRoom() && !Boolean.TRUE.equals(user.getIsLookingForRoom())) {
+                user.setRoomFinderSince(java.time.OffsetDateTime.now());
+            }
             user.setIsLookingForRoom(request.getIsLookingForRoom());
         }
         preferencesService.setNearbyAlerts(userId, request.getNotifyRoomFinder(), request.getNotifyRoommateFinder());

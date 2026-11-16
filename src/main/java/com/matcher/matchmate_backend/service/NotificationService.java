@@ -268,6 +268,34 @@ public class NotificationService {
         }
     }
 
+    /** Someone liked a community post. Same "Likes & Comments" switch as room likes. */
+    @Async
+    public void notifyAuthorOfPostLike(
+            AppUser author, UUID postId, String postTitle, UUID likerUserId, String likerName
+    ) {
+        if (postId == null || author == null) return;
+        if (!preferencesService.allows(author.getId(), UserNotificationPreferences::getNotifyLikesComments)) return;
+
+        try {
+            String title = "❤️ " + likerName + " liked your post";
+            String body = (postTitle == null || postTitle.isBlank())
+                    ? "Open it to see who else is joining in."
+                    : "\"" + (postTitle.length() > 80 ? postTitle.substring(0, 80) + "…" : postTitle) + "\"";
+
+            Map<String, String> data = new HashMap<>();
+            data.put("type", "COMMUNITY_POST_LIKE");
+            data.put("postId", String.valueOf(postId));
+            data.put("likerUserId", String.valueOf(likerUserId));
+            data.put("route", "/community/post/" + postId);
+            data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
+
+            storeAndPush(author, title, body, data);
+        } catch (Exception e) {
+            log.error("[FCM] Error notifying author #{} about a like on post {}: {}",
+                    author.getId(), postId, e.getMessage());
+        }
+    }
+
     /** Someone saved the host's room. Same "Likes & Comments" switch as comment alerts. */
     @Async
     public void notifyHostOfListingLike(

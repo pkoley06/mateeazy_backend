@@ -13,4 +13,7 @@ import lombok.NoArgsConstructor;
 public class CommunityCommentCreateRequest {
     @NotBlank(message = "Comment content cannot be empty")
     private String content;
+
+    /** Comment being replied to; omit for a top-level comment. */
+    private java.util.UUID parentId;
 }

@@ -75,16 +75,24 @@ public class UserService {
      */
     @Transactional
     public UserProfileResponse updateRoomSeeker(
-            UUID userId, Boolean isRoomSeeker, com.matcher.matchmate_backend.model.enums.listing.GenderPreference roomFinderGender
+            UUID userId, Boolean isRoomSeeker, com.matcher.matchmate_backend.model.enums.listing.GenderPreference roomFinderGender,
+            com.matcher.matchmate_backend.model.enums.listing.RoomFinderGoal roomFinderGoal
     ) {
-        if (isRoomSeeker == null && roomFinderGender == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "is_room_seeker or room_finder_gender is required");
+        if (isRoomSeeker == null && roomFinderGender == null && roomFinderGoal == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "is_room_seeker, room_finder_gender or room_finder_goal is required");
         }
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         boolean wasSeeker = Boolean.TRUE.equals(user.getIsLookingForRoom());
         if (isRoomSeeker != null) {
             user.setIsLookingForRoom(isRoomSeeker);
+            if (isRoomSeeker && !wasSeeker) {
+                user.setRoomFinderSince(java.time.OffsetDateTime.now());
+            }
+        }
+        if (roomFinderGoal != null) {
+            user.setRoomFinderGoal(roomFinderGoal);
         }
         if (roomFinderGender != null) {
             user.setRoomFinderGender(roomFinderGender);
@@ -234,6 +242,7 @@ public class UserService {
                 .guestTolerance(user.getGuestTolerance())
                 .locality(user.getLastKnownLocality())
                 .isRoomSeeker(Boolean.TRUE.equals(user.getIsLookingForRoom()))
+                .roomFinderGoal(user.getRoomFinderGoal())
                 .activeListingsCount(listingResponses.size())
                 .activeListings(listingResponses)
                 .build();
@@ -345,6 +354,7 @@ public class UserService {
                 .isProfileComplete(user.getOnboardingCompleted())
                 .missingLifestyleFields(missingLifestyleFields(user))
                 .isRoomSeeker(user.getIsLookingForRoom() != null ? user.getIsLookingForRoom() : Boolean.FALSE)
+                .roomFinderGoal(user.getRoomFinderGoal())
                 .roomFinderGender(user.effectiveRoomFinderGender())
                 .directFollowEnabled(user.getDirectFollowEnabled() != null ? user.getDirectFollowEnabled() : Boolean.TRUE)
                 .build();

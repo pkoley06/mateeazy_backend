@@ -217,6 +217,7 @@ public class DiscoveryService {
                 .distanceKm(distanceKm)
                 .photoUrls(listing.getPhotoUrls())
                 .likedByMe(likedByMe)
+                .createdAt(listing.getCreatedAt())
                 .build();
     }
 
@@ -237,6 +238,8 @@ public class DiscoveryService {
                 .localityName(locality != null && !locality.isBlank() ? locality : "Nearby")
                 .distanceKm(distanceKm)
                 .photoUrls(List.of())
+                .createdAt(seeker.getRoomFinderSince())
+                .seekerGoal(seeker.getRoomFinderGoal())
                 .build();
     }
 

@@ -149,6 +149,17 @@ public class AppUser {
     @Column(name = "room_finder_gender", length = 20)
     private com.matcher.matchmate_backend.model.enums.listing.GenderPreference roomFinderGender;
 
+    /** What the person is finding while Room Finder Mode is on (V32): a room or a mate. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "room_finder_goal", nullable = false, length = 10)
+    @Builder.Default
+    private com.matcher.matchmate_backend.model.enums.listing.RoomFinderGoal roomFinderGoal =
+            com.matcher.matchmate_backend.model.enums.listing.RoomFinderGoal.ROOM;
+
+    /** When Room Finder Mode was last switched on; drives the "listed X ago" label. */
+    @Column(name = "room_finder_since")
+    private OffsetDateTime roomFinderSince;
+
     public com.matcher.matchmate_backend.model.enums.listing.GenderPreference effectiveRoomFinderGender() {
         return com.matcher.matchmate_backend.model.enums.listing.GenderPreference
                 .effectiveRoomFinderGender(roomFinderGender, gender);

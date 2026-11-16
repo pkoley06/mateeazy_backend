@@ -3,6 +3,7 @@ package com.matcher.matchmate_backend.dto.request;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.matcher.matchmate_backend.model.enums.listing.GenderPreference;
+import com.matcher.matchmate_backend.model.enums.listing.RoomFinderGoal;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,7 +30,12 @@ public class RoomSeekerRequest {
     @JsonAlias({"roomFinderGender"})
     private GenderPreference roomFinderGender;
 
+    /** Whether the person is finding a room or a mate. */
+    @JsonProperty("room_finder_goal")
+    @JsonAlias({"roomFinderGoal"})
+    private RoomFinderGoal roomFinderGoal;
+
     public boolean isEmpty() {
-        return isRoomSeeker == null && roomFinderGender == null;
+        return isRoomSeeker == null && roomFinderGender == null && roomFinderGoal == null;
     }
 }

@@ -92,6 +92,12 @@ public class ListingService {
     public ListingResponse update(UUID requesterUserId, UUID listingId, ListingUpdateRequest request) {
         Listing listing = findOwnedListing(requesterUserId, listingId);
 
+        // Content is editable for 24h after posting; hiding / showing the listing stays available.
+        if (isEditWindowClosed(listing) && changesContent(request)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "A listing can only be edited within 24 hours of posting. You can still hide it or delete it.");
+        }
+
         if (request.getListingType() != null) listing.setListingType(request.getListingType());
         if (request.getTitle() != null && !request.getTitle().isBlank()) listing.setTitle(request.getTitle().trim());
         if (request.getRentAmount() != null) listing.setRentAmount(request.getRentAmount());
@@ -158,6 +164,25 @@ public class ListingService {
     @Transactional
     public List<ListingResponse> getMine(UUID hostUserId) {
         return listingRepository.findByHostUserId(hostUserId).stream().map(this::toResponse).toList();
+    }
+
+    /** How long after posting the owner may still change a listing's content. */
+    static final java.time.Duration EDIT_WINDOW = java.time.Duration.ofHours(24);
+
+    private static boolean isEditWindowClosed(Listing listing) {
+        return listing.getCreatedAt() != null
+                && listing.getCreatedAt().plus(EDIT_WINDOW).isBefore(java.time.OffsetDateTime.now());
+    }
+
+    /** True when the request touches anything other than the availability flag. */
+    private static boolean changesContent(ListingUpdateRequest r) {
+        return r.getListingType() != null || r.getTitle() != null || r.getRentAmount() != null
+                || r.getDepositAmount() != null || r.getRoomType() != null || r.getFurnishingStatus() != null
+                || r.getLatitude() != null || r.getLongitude() != null || r.getLocalityName() != null
+                || r.getCity() != null || r.getStateName() != null || r.getPostalCode() != null
+                || r.getDescription() != null || r.getPhotoUrls() != null || r.getMoveInDate() != null
+                || r.getAmenities() != null || r.getHouseRules() != null || r.getGenderPreference() != null
+                || r.getOpenToAllGenders() != null || r.getKitchenType() != null || r.getWashroomType() != null;
     }
 
     private Listing findOwnedListing(UUID requesterUserId, UUID listingId) {

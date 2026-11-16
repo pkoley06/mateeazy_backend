@@ -26,6 +26,7 @@ public class UserStatusService {
     private final UserFollowRepository userFollowRepository;
     private final AppUserRepository appUserRepository;
     private final NotificationService notificationService;
+    private final UserFollowService userFollowService;
 
     @Transactional
     public UserStatusResponse createStatus(UUID userId, UserStatusCreateRequest request) {
@@ -139,6 +140,20 @@ public class UserStatusService {
                 .viewer(viewer)
                 .build();
         userStatusViewRepository.save(view);
+    }
+
+    /** Who has seen a status. Only its author may ask. */
+    @Transactional(readOnly = true)
+    public List<com.matcher.matchmate_backend.dto.response.UserSummaryResponse> getViewers(
+            UUID statusId, UUID currentUserId) {
+        UserStatus status = userStatusRepository.findById(statusId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Status not found"));
+        if (!status.getUser().getId().equals(currentUserId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the author can see who viewed a status");
+        }
+        return userStatusViewRepository.findViewersByStatusId(statusId).stream()
+                .map(v -> userFollowService.toUserSummary(v, currentUserId))
+                .collect(Collectors.toList());
     }
 
     public UserStatusResponse toStatusResponse(UserStatus status, UUID currentUserId) {

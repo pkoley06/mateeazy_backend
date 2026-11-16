@@ -54,4 +54,8 @@ public class DiscoveryCardResponse {
      * own per card. Null for a Room Finder Mode card (nothing to like).
      */
     private Boolean likedByMe;
+    /** When the listing was posted, or when the person started Room Finder Mode. */
+    private java.time.OffsetDateTime createdAt;
+    /** Room Finder cards only: ROOM (finding a room) or MATE (finding a flatmate). */
+    private com.matcher.matchmate_backend.model.enums.listing.RoomFinderGoal seekerGoal;
 }

@@ -4,6 +4,7 @@ import com.matcher.matchmate_backend.dto.request.CommunityCommentCreateRequest;
 import com.matcher.matchmate_backend.dto.request.CommunityPostCreateRequest;
 import com.matcher.matchmate_backend.dto.request.CommunityPostUpdateRequest;
 import com.matcher.matchmate_backend.dto.response.CommunityCommentResponse;
+import com.matcher.matchmate_backend.dto.response.CommunityCommentLikeResponse;
 import com.matcher.matchmate_backend.dto.response.CommunityLikeToggleResponse;
 import com.matcher.matchmate_backend.dto.response.CommunityPostResponse;
 import com.matcher.matchmate_backend.dto.response.UserSummaryResponse;
@@ -120,11 +121,12 @@ public class CommunityPostController {
     @GetMapping("/posts/{id}/comments")
     public ResponseEntity<Page<CommunityCommentResponse>> getComments(
             @PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "30") int size
     ) {
         Pageable pageable = PageRequest.of(page, Math.min(size, 100));
-        return ResponseEntity.ok(communityPostService.getComments(id, pageable));
+        return ResponseEntity.ok(communityPostService.getComments(id, principal != null ? principal.getUserId() : null, pageable));
     }
 
     @PostMapping("/posts/{id}/comments")
@@ -135,6 +137,14 @@ public class CommunityPostController {
     ) {
         CommunityCommentResponse response = communityPostService.addComment(id, principal.getUserId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/comments/{id}/like")
+    public ResponseEntity<CommunityCommentLikeResponse> toggleCommentLike(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        return ResponseEntity.ok(communityPostService.toggleCommentLike(id, principal.getUserId()));
     }
 
     @DeleteMapping("/comments/{id}")

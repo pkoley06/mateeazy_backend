@@ -31,6 +31,8 @@ public class OtherUserProfileResponse {
     private GuestTolerance guestTolerance;
     private String locality;
     private Boolean isRoomSeeker;
+    /** ROOM or MATE: what they are finding while Room Finder Mode is on. */
+    private com.matcher.matchmate_backend.model.enums.listing.RoomFinderGoal roomFinderGoal;
     private Integer activeListingsCount;
     private List<ListingResponse> activeListings;
 }

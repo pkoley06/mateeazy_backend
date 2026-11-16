@@ -4,6 +4,7 @@ import com.matcher.matchmate_backend.dto.request.CommunityCommentCreateRequest;
 import com.matcher.matchmate_backend.dto.request.CommunityPostCreateRequest;
 import com.matcher.matchmate_backend.dto.request.CommunityPostUpdateRequest;
 import com.matcher.matchmate_backend.dto.response.CommunityCommentResponse;
+import com.matcher.matchmate_backend.dto.response.CommunityCommentLikeResponse;
 import com.matcher.matchmate_backend.dto.response.CommunityLikeToggleResponse;
 import com.matcher.matchmate_backend.dto.response.CommunityPostResponse;
 import com.matcher.matchmate_backend.dto.response.UserSummaryResponse;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.CommunityComment;
+import com.matcher.matchmate_backend.model.entity.CommunityCommentLike;
 import com.matcher.matchmate_backend.model.entity.CommunityPost;
 import com.matcher.matchmate_backend.model.entity.CommunityPostLike;
 import com.matcher.matchmate_backend.model.entity.Listing;
@@ -18,6 +20,7 @@ import com.matcher.matchmate_backend.model.entity.UserHiddenPost;
 import com.matcher.matchmate_backend.model.enums.community.CommunityPostCategory;
 import com.matcher.matchmate_backend.model.enums.community.CommunityPostStatus;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
+import com.matcher.matchmate_backend.repository.CommunityCommentLikeRepository;
 import com.matcher.matchmate_backend.repository.CommunityCommentRepository;
 import com.matcher.matchmate_backend.repository.CommunityPostLikeRepository;
 import com.matcher.matchmate_backend.repository.CommunityPostRepository;
@@ -44,27 +47,35 @@ public class CommunityPostService {
 
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
     private static final double EARTH_RADIUS_KM = 6371.0;
+    /** Deepest reply level: 0 = comment, 1 = reply, 2 = reply to a reply. */
+    private static final int MAX_COMMENT_DEPTH = 2;
 
     private final CommunityPostRepository communityPostRepository;
     private final CommunityPostLikeRepository communityPostLikeRepository;
     private final CommunityCommentRepository communityCommentRepository;
+    private final CommunityCommentLikeRepository communityCommentLikeRepository;
     private final AppUserRepository appUserRepository;
     private final ListingRepository listingRepository;
     private final UserHiddenPostRepository userHiddenPostRepository;
     private final UserFollowService userFollowService;
+    private final NotificationService notificationService;
 
     public CommunityPostService(
             CommunityPostRepository communityPostRepository,
             CommunityPostLikeRepository communityPostLikeRepository,
             CommunityCommentRepository communityCommentRepository,
+            CommunityCommentLikeRepository communityCommentLikeRepository,
             AppUserRepository appUserRepository,
             ListingRepository listingRepository,
             UserHiddenPostRepository userHiddenPostRepository,
-            UserFollowService userFollowService
+            UserFollowService userFollowService,
+            NotificationService notificationService
     ) {
+        this.notificationService = notificationService;
         this.communityPostRepository = communityPostRepository;
         this.communityPostLikeRepository = communityPostLikeRepository;
         this.communityCommentRepository = communityCommentRepository;
+        this.communityCommentLikeRepository = communityCommentLikeRepository;
         this.appUserRepository = appUserRepository;
         this.listingRepository = listingRepository;
         this.userHiddenPostRepository = userHiddenPostRepository;
@@ -260,6 +271,12 @@ public class CommunityPostService {
             communityPostLikeRepository.save(like);
             communityPostRepository.updateLikesCount(postId, 1);
             int newCount = post.getLikesCount() + 1;
+            AppUser author = post.getAuthor();
+            if (author != null && !author.getId().equals(currentUserId)) {
+                appUserRepository.findById(currentUserId).ifPresent(liker ->
+                        notificationService.notifyAuthorOfPostLike(
+                                author, postId, post.getTitle(), currentUserId, liker.getFullName()));
+            }
             return CommunityLikeToggleResponse.builder()
                     .postId(postId)
                     .liked(true)
@@ -269,13 +286,25 @@ public class CommunityPostService {
     }
 
     @Transactional(readOnly = true)
-    public Page<CommunityCommentResponse> getComments(UUID postId, Pageable pageable) {
+    public Page<CommunityCommentResponse> getComments(UUID postId, UUID currentUserId, Pageable pageable) {
         if (!communityPostRepository.existsById(postId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Community post not found: " + postId);
         }
 
-        return communityCommentRepository.findByPostIdOrderByCreatedAtAsc(postId, pageable)
-                .map(this::toCommentResponse);
+        Page<CommunityComment> page = communityCommentRepository.findByPostIdOrderByCreatedAtAsc(postId, pageable);
+        List<UUID> ids = page.getContent().stream().map(CommunityComment::getId).toList();
+        Map<UUID, Long> counts = new HashMap<>();
+        Set<UUID> liked = Set.of();
+        if (!ids.isEmpty()) {
+            for (Object[] row : communityCommentLikeRepository.countByCommentIds(ids)) {
+                counts.put((UUID) row[0], (Long) row[1]);
+            }
+            if (currentUserId != null) {
+                liked = communityCommentLikeRepository.findLikedCommentIds(currentUserId, ids);
+            }
+        }
+        Set<UUID> likedIds = liked;
+        return page.map(c -> toCommentResponse(c, counts.getOrDefault(c.getId(), 0L), likedIds.contains(c.getId())));
     }
 
     @Transactional
@@ -290,16 +319,32 @@ public class CommunityPostService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Suspended users cannot comment");
         }
 
+        // Replies nest three levels deep (0, 1, 2). Replying at the deepest
+        // level attaches to the same parent, so the thread never goes deeper.
+        CommunityComment parent = null;
+        if (request.getParentId() != null) {
+            parent = communityCommentRepository.findById(request.getParentId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found: " + request.getParentId()));
+            if (!parent.getPost().getId().equals(postId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That comment belongs to a different post");
+            }
+            if (parent.getDepth() >= MAX_COMMENT_DEPTH && parent.getParent() != null) {
+                parent = parent.getParent();
+            }
+        }
+
         CommunityComment comment = CommunityComment.builder()
                 .post(post)
                 .user(user)
                 .content(request.getContent().trim())
+                .parent(parent)
+                .depth((short) (parent == null ? 0 : parent.getDepth() + 1))
                 .build();
 
         CommunityComment saved = communityCommentRepository.save(comment);
         communityPostRepository.updateCommentsCount(postId, 1);
 
-        return toCommentResponse(saved);
+        return toCommentResponse(saved, 0L, false);
     }
 
     @Transactional
@@ -312,8 +357,33 @@ public class CommunityPostService {
         }
 
         UUID postId = comment.getPost().getId();
+        long removed = 1 + communityCommentRepository.countDescendants(commentId);
         communityCommentRepository.delete(comment);
-        communityPostRepository.updateCommentsCount(postId, -1);
+        communityPostRepository.updateCommentsCount(postId, (int) -removed);
+    }
+
+    @Transactional
+    public CommunityCommentLikeResponse toggleCommentLike(UUID commentId, UUID currentUserId) {
+        if (!communityCommentRepository.existsById(commentId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found: " + commentId);
+        }
+        Optional<CommunityCommentLike> existing =
+                communityCommentLikeRepository.findByCommentIdAndUserId(commentId, currentUserId);
+        boolean liked;
+        if (existing.isPresent()) {
+            communityCommentLikeRepository.delete(existing.get());
+            liked = false;
+        } else {
+            communityCommentLikeRepository.save(
+                    CommunityCommentLike.builder().commentId(commentId).userId(currentUserId).build());
+            liked = true;
+        }
+        communityCommentLikeRepository.flush();
+        return CommunityCommentLikeResponse.builder()
+                .commentId(commentId)
+                .likedByMe(liked)
+                .likesCount(communityCommentLikeRepository.countByCommentId(commentId))
+                .build();
     }
 
     public CommunityPostResponse toPostResponse(CommunityPost post, boolean isLikedByMe, Point fromLocation) {
@@ -364,8 +434,9 @@ public class CommunityPostService {
         return builder.build();
     }
 
-    private CommunityCommentResponse toCommentResponse(CommunityComment comment) {
+    private CommunityCommentResponse toCommentResponse(CommunityComment comment, long likesCount, boolean likedByMe) {
         AppUser author = comment.getUser();
+        CommunityComment parent = comment.getParent();
         return CommunityCommentResponse.builder()
                 .id(comment.getId())
                 .postId(comment.getPost().getId())
@@ -374,6 +445,11 @@ public class CommunityPostService {
                 .authorAvatarUrl(author.getAvatarUrl())
                 .authorIsVerified(Boolean.TRUE.equals(author.getIsIdentityVerified()))
                 .content(comment.getContent())
+                .parentId(parent != null ? parent.getId() : null)
+                .depth(comment.getDepth())
+                .replyToName(parent != null ? parent.getUser().getFullName() : null)
+                .likesCount(likesCount)
+                .likedByMe(likedByMe)
                 .createdAt(comment.getCreatedAt())
                 .build();
     }
