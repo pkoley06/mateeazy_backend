@@ -31,7 +31,12 @@ public record MessageSentEvent(
     }
 
     public static String previewText(MessageType type, String content, int attachmentCount) {
-        if (type == null || type == MessageType.TEXT) return content == null ? "" : content;
+        if (type == null || type == MessageType.TEXT) {
+            if (content == null) return "";
+            // A reply to a status carries a "[[status:id]]" marker line; show only the words.
+            String stripped = content.replaceFirst("^\\[\\[status:[0-9a-fA-F-]+\\]\\]\\R?", "");
+            return stripped.length() == content.length() ? content : "Replied to a status: " + stripped;
+        }
         if (type == MessageType.GIF) return "GIF";
         return attachmentCount > 1 ? "📷 " + attachmentCount + " photos" : "📷 Photo";
     }
