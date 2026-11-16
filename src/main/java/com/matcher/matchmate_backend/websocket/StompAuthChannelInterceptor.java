@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
  * Authenticates the STOMP session on CONNECT from the {@code Authorization: Bearer <jwt>}
  * native header (same user JWT the REST API uses) and guards every later SUBSCRIBE / SEND:
  * no principal → rejected; SUBSCRIBE only to a room comment topic or the caller's own error
- * queue; SEND only to application destinations. Throwing here makes the broker reply with
+ * queue, chat and notification queues; SEND only to application destinations. Throwing here makes the broker reply with
  * a STOMP ERROR frame and close the session.
  */
 @Component
@@ -38,6 +38,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private static final Pattern PRESENCE_TOPIC = Pattern.compile("^/topic/users/[0-9a-fA-F-]{36}/presence$");
     private static final String USER_MESSAGES_QUEUE = "/user/queue/messages";
     private static final String USER_MESSAGE_STATUS_QUEUE = "/user/queue/messages/status";
+    private static final String USER_NOTIFICATIONS_QUEUE = "/user/queue/notifications";
 
     private final JwtTokenProvider jwtTokenProvider;
     private final AppUserRepository userRepository;
@@ -62,7 +63,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                             || USER_ERROR_QUEUE.equals(destination)
                             || PRESENCE_TOPIC.matcher(destination).matches()
                             || USER_MESSAGES_QUEUE.equals(destination)
-                            || USER_MESSAGE_STATUS_QUEUE.equals(destination));
+                            || USER_MESSAGE_STATUS_QUEUE.equals(destination)
+                            || USER_NOTIFICATIONS_QUEUE.equals(destination));
                 if (!allowed) {
                     throw new AccessDeniedException("Subscription to " + destination + " is not allowed");
                 }
