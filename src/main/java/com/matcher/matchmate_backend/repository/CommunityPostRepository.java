@@ -57,14 +57,19 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, UU
     @Query("""
         SELECT p FROM CommunityPost p
         LEFT JOIN p.author u
-        WHERE (:search IS NULL OR LOWER(p.content) LIKE LOWER(CONCAT('%', :search, '%'))
-               OR LOWER(p.title) LIKE LOWER(CONCAT('%', :search, '%'))
-               OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%')))
-          AND (:category IS NULL OR p.category = :category)
+        WHERE (LOWER(p.content) LIKE :pattern
+               OR LOWER(p.title) LIKE :pattern
+               OR LOWER(u.fullName) LIKE :pattern)
+          AND (:anyCategory = TRUE OR p.category = :category)
         ORDER BY p.createdAt DESC
     """)
+    // No parameter may be null: PostgreSQL cannot infer the type of an untyped
+    // NULL inside LOWER(...) / IS NULL, which made the admin list return 500.
+    // `pattern` is a lower-cased "%term%" ("%" for no search); when no category
+    // filter is set, pass any enum value with anyCategory = true.
     Page<CommunityPost> searchForAdmin(
-        @Param("search") String search,
+        @Param("pattern") String pattern,
+        @Param("anyCategory") boolean anyCategory,
         @Param("category") com.matcher.matchmate_backend.model.enums.community.CommunityPostCategory category,
         Pageable pageable
     );

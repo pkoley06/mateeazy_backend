@@ -44,7 +44,9 @@ public class AdminCommunityService {
     public PageResponse<CommunityPostResponse> listPosts(String search, String categoryStr, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.clamp(size, 1, 100);
-        String query = StringUtils.hasText(search) ? search.trim() : null;
+        String pattern = StringUtils.hasText(search)
+                ? "%" + search.trim().toLowerCase() + "%"
+                : "%";
 
         CommunityPostCategory category = null;
         if (StringUtils.hasText(categoryStr)) {
@@ -52,9 +54,12 @@ public class AdminCommunityService {
                 category = CommunityPostCategory.valueOf(categoryStr.trim().toUpperCase());
             } catch (Exception ignored) {}
         }
+        boolean anyCategory = category == null;
+        if (anyCategory) category = CommunityPostCategory.values()[0];
 
         Page<CommunityPost> result = communityPostRepository.searchForAdmin(
-                query,
+                pattern,
+                anyCategory,
                 category,
                 PageRequest.of(safePage, safeSize)
         );
