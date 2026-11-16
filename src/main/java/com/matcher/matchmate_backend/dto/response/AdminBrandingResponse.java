@@ -22,6 +22,7 @@ public class AdminBrandingResponse {
     private String termsUrl;
     private String privacyUrl;
     private Boolean maintenanceMode;
+    private Boolean communityEnabled;
     private String googleMapsApiKey;
     private String developerUpiId;
     private String developerQrCodeUrl;

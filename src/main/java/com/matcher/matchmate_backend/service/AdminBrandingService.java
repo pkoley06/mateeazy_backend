@@ -34,6 +34,7 @@ public class AdminBrandingService {
         if (request.getTermsUrl() != null) branding.setTermsUrl(blankToNull(request.getTermsUrl()));
         if (request.getPrivacyUrl() != null) branding.setPrivacyUrl(blankToNull(request.getPrivacyUrl()));
         if (request.getMaintenanceMode() != null) branding.setMaintenanceMode(request.getMaintenanceMode());
+        if (request.getCommunityEnabled() != null) branding.setCommunityEnabled(request.getCommunityEnabled());
         if (request.getGoogleMapsApiKey() != null) branding.setGoogleMapsApiKey(blankToNull(request.getGoogleMapsApiKey()));
         if (request.getDeveloperUpiId() != null) branding.setDeveloperUpiId(blankToNull(request.getDeveloperUpiId()));
         if (request.getDeveloperQrCodeUrl() != null) branding.setDeveloperQrCodeUrl(blankToNull(request.getDeveloperQrCodeUrl()));
@@ -75,6 +76,7 @@ public class AdminBrandingService {
                     .primaryColor("#6750A4")
                     .supportEmail("support@mateeazy.com")
                     .maintenanceMode(false)
+                    .communityEnabled(true)
                     .developerUpiId("mateeazy.dev@upi")
                     .developerSupportNote("Made with ❤️ for flatmates everywhere. If MateEazy helped you find a home, buy the developer a coffee!")
                     .deletionGracePeriodDays(30)
@@ -100,6 +102,7 @@ public class AdminBrandingService {
                 .termsUrl(branding.getTermsUrl())
                 .privacyUrl(branding.getPrivacyUrl())
                 .maintenanceMode(branding.getMaintenanceMode())
+                .communityEnabled(!Boolean.FALSE.equals(branding.getCommunityEnabled()))
                 .googleMapsApiKey(branding.getGoogleMapsApiKey())
                 .developerUpiId(branding.getDeveloperUpiId())
                 .developerQrCodeUrl(branding.getDeveloperQrCodeUrl())

@@ -35,6 +35,7 @@ public class AdminBrandingUpdateRequest {
     private String privacyUrl;
 
     private Boolean maintenanceMode;
+    private Boolean communityEnabled;
 
     @Size(max = 200, message = "Google Maps API key cannot exceed 200 characters")
     private String googleMapsApiKey;

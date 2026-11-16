@@ -51,6 +51,11 @@ public class AppBranding {
     @Builder.Default
     private Boolean maintenanceMode = false;
 
+    /** Master switch for the community feed, follows and statuses. When false the app hides them and the API rejects them. */
+    @Column(name = "community_enabled", nullable = false)
+    @Builder.Default
+    private Boolean communityEnabled = true;
+
     @Column(name = "google_maps_api_key", length = 200)
     private String googleMapsApiKey;
 
