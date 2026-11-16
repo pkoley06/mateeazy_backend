@@ -39,6 +39,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private static final String USER_MESSAGES_QUEUE = "/user/queue/messages";
     private static final String USER_MESSAGE_STATUS_QUEUE = "/user/queue/messages/status";
     private static final String USER_NOTIFICATIONS_QUEUE = "/user/queue/notifications";
+    private static final String USER_TYPING_QUEUE = "/user/queue/typing";
 
     private final JwtTokenProvider jwtTokenProvider;
     private final AppUserRepository userRepository;
@@ -64,7 +65,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                             || PRESENCE_TOPIC.matcher(destination).matches()
                             || USER_MESSAGES_QUEUE.equals(destination)
                             || USER_MESSAGE_STATUS_QUEUE.equals(destination)
-                            || USER_NOTIFICATIONS_QUEUE.equals(destination));
+                            || USER_NOTIFICATIONS_QUEUE.equals(destination)
+                            || USER_TYPING_QUEUE.equals(destination));
                 if (!allowed) {
                     throw new AccessDeniedException("Subscription to " + destination + " is not allowed");
                 }

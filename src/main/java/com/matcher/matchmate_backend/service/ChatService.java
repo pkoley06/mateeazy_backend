@@ -538,6 +538,22 @@ public class ChatService {
         }
     }
 
+    /**
+     * Who should be told that [userId] is typing in the conversation, or empty when
+     * nobody should (not a participant, or either side has blocked the other).
+     */
+    @Transactional(readOnly = true)
+    public java.util.Optional<UUID> typingRecipient(UUID conversationId, UUID userId) {
+        Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
+        if (conversation == null) return java.util.Optional.empty();
+        boolean participant = conversation.getUserOne().getId().equals(userId)
+                || conversation.getUserTwo().getId().equals(userId);
+        if (!participant) return java.util.Optional.empty();
+        UUID other = otherParticipantId(conversation, userId);
+        if (blockRepository.existsBlockBetween(userId, other)) return java.util.Optional.empty();
+        return java.util.Optional.of(other);
+    }
+
     private static UUID otherParticipantId(Conversation conversation, UUID userId) {
         requireParticipant(conversation, userId);
         return conversation.getUserOne().getId().equals(userId)
