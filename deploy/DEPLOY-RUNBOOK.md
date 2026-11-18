@@ -2,6 +2,8 @@
 
 This runbook contains the complete, one-time setup instructions for deploying `matchmate-backend` to an Oracle Cloud Infrastructure (OCI) Ampere A1 (`linux/arm64`) Virtual Machine.
 
+> Separate production and staging databases (fresh production DB, testers' data on `staging-api.mateeazy.in`): see [STAGING-SETUP.md](STAGING-SETUP.md).
+
 ---
 
 ## Architecture Overview
