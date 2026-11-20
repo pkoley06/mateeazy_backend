@@ -33,6 +33,10 @@ public class OtherUserProfileResponse {
     private Boolean isRoomSeeker;
     /** ROOM or MATE: what they are finding while Room Finder Mode is on. */
     private com.matcher.matchmate_backend.model.enums.listing.RoomFinderGoal roomFinderGoal;
+    /** Area a Room Finder is searching in (their alert area); null when not seeking or never set. */
+    private String seekingLocality;
+    /** Radius around {@link #seekingLocality}, in km; null alongside it. */
+    private Double seekingRadiusKm;
     private Integer activeListingsCount;
     private List<ListingResponse> activeListings;
 }

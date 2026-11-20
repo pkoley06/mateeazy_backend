@@ -12,8 +12,9 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
  * Fans out comment / like side effects once the owning transaction has committed:
- * STOMP broadcast to everyone viewing the room, and a push to the host (checked against
- * their notification preferences inside {@link NotificationService}).
+ * STOMP broadcast to everyone viewing the room, a push to the host, and a push to everyone
+ * else who has commented on the room (each checked against the recipient's notification
+ * preferences inside {@link NotificationService}).
  */
 @Component
 public class ListingInteractionEventListener {
@@ -45,11 +46,16 @@ public class ListingInteractionEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onCommentCreated(ListingCommentCreatedEvent event) {
-        if (event.authoredByHost()) return;
-        userRepository.findById(event.hostUserId()).ifPresent((AppUser host) ->
-                notificationService.notifyHostOfNewComment(
-                        event.listingId(), event.listingTitle(), event.listingLocality(),
-                        host, event.authorUserId(), event.authorName(), event.content()));
+        if (!event.authoredByHost()) {
+            userRepository.findById(event.hostUserId()).ifPresent((AppUser host) ->
+                    notificationService.notifyHostOfNewComment(
+                            event.listingId(), event.listingTitle(), event.listingLocality(),
+                            host, event.authorUserId(), event.authorName(), event.content()));
+        }
+        // Everyone else in the thread (including after the host's own replies).
+        notificationService.notifyParticipantsOfNewComment(
+                event.listingId(), event.listingTitle(), event.listingLocality(),
+                event.hostUserId(), event.authorUserId(), event.authorName(), event.content());
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

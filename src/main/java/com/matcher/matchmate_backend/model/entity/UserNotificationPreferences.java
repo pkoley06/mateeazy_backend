@@ -55,6 +55,11 @@ public class UserNotificationPreferences {
     @Builder.Default
     private Boolean notifyStatusReactions = true;
 
+    /** Someone else commented on a room you also commented on (not your own room - that's likes & comments). */
+    @Column(name = "notify_comment_replies", nullable = false)
+    @Builder.Default
+    private Boolean notifyCommentReplies = true;
+
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;

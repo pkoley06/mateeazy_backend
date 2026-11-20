@@ -13,7 +13,9 @@ import com.matcher.matchmate_backend.model.entity.AppUser;
 import com.matcher.matchmate_backend.model.entity.Listing;
 import com.matcher.matchmate_backend.model.entity.UserNotificationPreferences;
 import com.matcher.matchmate_backend.repository.AppUserRepository;
+import com.matcher.matchmate_backend.repository.ListingCommentRepository;
 import com.matcher.matchmate_backend.repository.ListingRepository;
+import com.matcher.matchmate_backend.repository.UserBlockRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -22,8 +24,11 @@ import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -47,6 +52,9 @@ public class NotificationService {
     private final NotificationPreferencesService preferencesService;
     private final UserNotificationService inboxService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ListingCommentRepository commentRepository;
+    private final UserBlockRepository blockRepository;
+    private final SeekerMatchAlertLedger seekerMatchAlertLedger;
 
     public NotificationService(
             AppUserRepository userRepository,
@@ -54,7 +62,10 @@ public class NotificationService {
             MatchingHeuristicEngine matchingEngine,
             NotificationPreferencesService preferencesService,
             UserNotificationService inboxService,
-            SimpMessagingTemplate messagingTemplate
+            SimpMessagingTemplate messagingTemplate,
+            ListingCommentRepository commentRepository,
+            UserBlockRepository blockRepository,
+            SeekerMatchAlertLedger seekerMatchAlertLedger
     ) {
         this.userRepository = userRepository;
         this.listingRepository = listingRepository;
@@ -62,6 +73,9 @@ public class NotificationService {
         this.preferencesService = preferencesService;
         this.inboxService = inboxService;
         this.messagingTemplate = messagingTemplate;
+        this.commentRepository = commentRepository;
+        this.blockRepository = blockRepository;
+        this.seekerMatchAlertLedger = seekerMatchAlertLedger;
     }
 
     /** Stores the notification, then pushes it (if the user has a token) with its id attached. */
@@ -268,6 +282,63 @@ public class NotificationService {
         }
     }
 
+    /**
+     * Someone commented on a room: tells everyone else who has commented on that room (the
+     * author and the host excluded - the host gets {@link #notifyHostOfNewComment} instead).
+     * Skips people on either side of a block with the author, and anyone who turned off
+     * "Replies on rooms you commented on".
+     */
+    @Async
+    public void notifyParticipantsOfNewComment(
+            UUID listingId, String listingTitle, String listingLocality,
+            UUID hostUserId, UUID authorUserId, String authorName, String content
+    ) {
+        if (listingId == null || authorUserId == null) return;
+
+        try {
+            Set<UUID> participantIds = new LinkedHashSet<>(commentRepository.findCommenterIds(listingId));
+            participantIds.remove(authorUserId);
+            if (hostUserId != null) participantIds.remove(hostUserId);
+            if (participantIds.isEmpty()) return;
+
+            Set<UUID> blocked = new HashSet<>(blockRepository.findBlockedUserIdsByBlockerId(authorUserId));
+            blocked.addAll(blockRepository.findBlockerIdsByBlockedId(authorUserId));
+
+            String preview = content == null ? "" : content.trim();
+            if (preview.length() > 90) preview = preview.substring(0, 87) + "…";
+
+            boolean byHost = hostUserId != null && hostUserId.equals(authorUserId);
+            String name = authorName != null && !authorName.isBlank() ? authorName : "Someone";
+            String room = (listingTitle != null && !listingTitle.isBlank())
+                    ? listingTitle
+                    : "the room in " + (listingLocality != null ? listingLocality : "your area");
+            String title = byHost
+                    ? "💬 Host " + name + " replied on " + room
+                    : "💬 " + name + " also commented on " + room;
+            String body = preview.isEmpty() ? "Open the listing to see the conversation." : "\"" + preview + "\"";
+
+            int sent = 0;
+            for (AppUser participant : userRepository.findAllById(participantIds)) {
+                if (blocked.contains(participant.getId())) continue;
+                if (!preferencesService.allows(participant.getId(), UserNotificationPreferences::getNotifyCommentReplies)) {
+                    continue;
+                }
+                Map<String, String> data = new HashMap<>();
+                data.put("type", "LISTING_COMMENT_REPLY");
+                data.put("listingId", String.valueOf(listingId));
+                data.put("commentAuthorId", String.valueOf(authorUserId));
+                data.put("route", "/discover/room/" + listingId);
+                data.put("click_action", "FLUTTER_NOTIFICATION_CLICK");
+
+                storeAndPush(participant, title, body, data);
+                sent++;
+            }
+            log.info("[FCM] Notified {} comment participant(s) on listing #{}", sent, listingId);
+        } catch (Exception e) {
+            log.error("[FCM] Error notifying comment participants on listing #{}: {}", listingId, e.getMessage());
+        }
+    }
+
     /** Someone liked a community post. Same "Likes & Comments" switch as room likes. */
     @Async
     public void notifyAuthorOfPostLike(
@@ -364,6 +435,13 @@ public class NotificationService {
                 if (matchPercent < 50) {
                     log.info("[Match] Skipping host #{} for seeker #{}: match percentage ({}%) below threshold",
                             host.getId(), seeker.getId(), matchPercent);
+                    continue;
+                }
+
+                // Once per host per Room Finder session: this fan-out re-runs on every room-seeker /
+                // alert-area save, and a host with several listings near the seeker appears once per listing.
+                if (!seekerMatchAlertLedger.claim(host.getId(), seeker.getId(), seeker.getRoomFinderSince())) {
+                    log.debug("[Match] Host #{} already alerted about seeker #{}; skipping", host.getId(), seeker.getId());
                     continue;
                 }
 

@@ -24,6 +24,10 @@ public interface ListingCommentRepository extends JpaRepository<ListingComment, 
 
     long countByListingId(UUID listingId);
 
+    /** Everyone who has commented on the room (distinct), for the "new comment in a thread you joined" fan-out. */
+    @Query("SELECT DISTINCT c.user.id FROM ListingComment c WHERE c.listing.id = :listingId")
+    List<UUID> findCommenterIds(@Param("listingId") UUID listingId);
+
     /**
      * Admin moderation log: newest first, optional keyword over the body, author name and
      * room title, optional single-room filter. {@code :search} is cast for the same reason

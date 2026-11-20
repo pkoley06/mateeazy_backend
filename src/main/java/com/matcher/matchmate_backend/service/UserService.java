@@ -226,6 +226,12 @@ public class UserService {
                 .map(listingService::toResponse)
                 .toList();
 
+        // A Room Finder's alert area (only the locality name and radius, never coordinates).
+        boolean seekingArea = Boolean.TRUE.equals(user.getIsLookingForRoom())
+                && user.getTargetSearchLocation() != null
+                && user.getTargetSearchLocality() != null
+                && !user.getTargetSearchLocality().isBlank();
+
         return OtherUserProfileResponse.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
@@ -243,6 +249,10 @@ public class UserService {
                 .locality(user.getLastKnownLocality())
                 .isRoomSeeker(Boolean.TRUE.equals(user.getIsLookingForRoom()))
                 .roomFinderGoal(user.getRoomFinderGoal())
+                .seekingLocality(seekingArea ? user.getTargetSearchLocality().trim() : null)
+                .seekingRadiusKm(seekingArea
+                        ? (user.getSearchRadiusKm() != null ? user.getSearchRadiusKm() : 10.0)
+                        : null)
                 .activeListingsCount(listingResponses.size())
                 .activeListings(listingResponses)
                 .build();
