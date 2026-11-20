@@ -7,36 +7,58 @@ on:
         description: 'Full 40-character commit SHA to deploy'
         required: true
         type: string
+      target:
+        description: 'production (api.mateeazy.in) or staging (staging-api.mateeazy.in)'
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       sha:
         description: 'Full 40-character commit SHA to deploy or rollback to'
         required: true
         type: string
+      target:
+        description: 'Where to deploy'
+        required: true
+        type: choice
+        default: staging
+        options:
+          - staging
+          - production
 
 permissions:
   contents: read
   packages: read
 
 concurrency:
-  group: deploy-prod
+  # One deploy at a time per target; staging and production never block each other.
+  group: deploy-${{ inputs.target }}
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy to VM
+    name: Deploy to VM (${{ inputs.target }})
     runs-on: ubuntu-latest
+    # Both backends live on the same VM behind the same deploy key, whose secrets
+    # (OCI_HOST / OCI_SSH_KEY / OCI_KNOWN_HOSTS) are stored in the "production"
+    # environment - so staging deploys use it too. Its deployment-branch rule must
+    # allow both dev and prod.
     environment: production
 
     steps:
-      - name: Validate commit SHA format
+      - name: Validate inputs
         run: |
           TARGET_SHA="${{ inputs.sha }}"
+          TARGET="${{ inputs.target }}"
           if [[ ! "${TARGET_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::Target SHA '${TARGET_SHA}' is not a valid 40-character hexadecimal commit hash."
             exit 1
           fi
-          echo "Validated commit SHA: ${TARGET_SHA}"
+          if [[ "${TARGET}" != "production" && "${TARGET}" != "staging" ]]; then
+            echo "::error::Target '${TARGET}' must be 'production' or 'staging'."
+            exit 1
+          fi
+          echo "Validated: ${TARGET_SHA} -> ${TARGET}"
 
       - name: Configure SSH credentials
         env:
@@ -55,5 +77,6 @@ jobs:
           OCI_HOST: ${{ secrets.OCI_HOST }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_SHA: ${{ inputs.sha }}
+          TARGET: ${{ inputs.target }}
         run: |
-          echo "${GH_TOKEN}" | ssh -o IdentitiesOnly=yes -o BatchMode=yes -i ~/.ssh/id_ed25519 "deploy@${OCI_HOST}" "sudo /usr/local/bin/matchmate-backend-deploy ${TARGET_SHA}"
+          echo "${GH_TOKEN}" | ssh -o IdentitiesOnly=yes -o BatchMode=yes -i ~/.ssh/id_ed25519 "deploy@${OCI_HOST}" "sudo /usr/local/bin/matchmate-backend-deploy ${TARGET_SHA} ${TARGET}"

@@ -1,10 +1,12 @@
 name: CI & Deploy
 
 on:
+  # dev -> staging (staging-api.mateeazy.in), prod -> production (api.mateeazy.in).
+  # Release = merge dev into prod.
   push:
-    branches: [main, dev]
+    branches: [dev, prod]
   pull_request:
-    branches: [main, dev]
+    branches: [dev, prod]
   workflow_dispatch:
 
 permissions:
@@ -122,10 +124,13 @@ jobs:
   deploy:
     name: Trigger Deployment
     needs: image
+    # Only dev and prod deploy; a manual run on any other branch stops after the image.
+    if: github.ref_name == 'dev' || github.ref_name == 'prod'
     permissions:
       contents: read
       packages: read
     uses: ./.github/workflows/deploy.yml
     with:
       sha: ${{ github.sha }}
+      target: ${{ github.ref_name == 'prod' && 'production' || 'staging' }}
     secrets: inherit

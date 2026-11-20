@@ -555,7 +555,14 @@ In GitHub (`https://github.com/pkoley06/matchmate_backend`):
    * `OCI_SSH_KEY`: The entire contents of `./id_ed25519_deploy` (including `-----BEGIN OPENSSH PRIVATE KEY-----` and `-----END OPENSSH PRIVATE KEY-----`)
    * `OCI_KNOWN_HOSTS`: The exact single-line output from `./known_hosts_entry` (e.g., `123.45.67.89 ssh-ed25519 AAAAC3...`)
 
-3. *(Optional)* Under **Deployment branches**, configure rule to allow `main` and `dev`.
+3. *(Optional)* Under **Deployment branches**, configure rule to allow `dev` and `prod`
+   (staging deploys from `dev` use this environment's secrets too - same VM, same key).
+
+> **Branch → server:** pushing to `dev` deploys **staging** (`staging-api.mateeazy.in`,
+> `/opt/mateeazy-backend-staging`, port 8081); pushing to `prod` deploys **production**
+> (`api.mateeazy.in`, `/opt/matchmate-backend`, port 8080). Release = merge `dev` into `prod`.
+> The deploy script takes the target as its second argument
+> (`matchmate-backend-deploy <sha> staging|production`, default `production`).
 
 4. **Delete the private key from your local machine**:
    ```bash
@@ -569,12 +576,12 @@ In GitHub (`https://github.com/pkoley06/matchmate_backend`):
 ### 1. Trigger the First Deployment
 Go to GitHub Actions in your repo:
 1. Select **CI & Deploy** workflow.
-2. Click **Run workflow** (branch: `main` or `dev`).
+2. Click **Run workflow** (branch: `dev` for staging, `prod` for production).
 3. The pipeline will:
    * Build the jar with Gradle (Temurin 25).
    * Run the test suite.
    * Build and push the ARM64 container image to GHCR.
-   * Connect over SSH to trigger `/usr/local/bin/matchmate-backend-deploy <SHA>`.
+   * Connect over SSH to trigger `/usr/local/bin/matchmate-backend-deploy <SHA> <staging|production>`.
 
 ### 2. Verify on the VM
 ```bash
