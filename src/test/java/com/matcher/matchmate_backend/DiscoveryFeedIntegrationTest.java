@@ -161,6 +161,64 @@ class DiscoveryFeedIntegrationTest {
     }
 
     @Test
+    void flatmatesSegmentIgnoresRoomOnlyFilters() throws Exception {
+        // A room type / budget left over from the Rooms tab must not empty the people feed.
+        mockMvc.perform(get("/api/v1/discovery")
+                        .header("Authorization", "Bearer " + seekerToken)
+                        .param("lat", String.valueOf(SEEKER_LAT))
+                        .param("lng", String.valueOf(SEEKER_LNG))
+                        .param("radiusKm", "10")
+                        .param("listingType", "NEED_ROOM")
+                        .param("roomType", "SHARE")
+                        .param("maxRent", "5000"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].hostName").value("Nearby Flatmate"));
+    }
+
+    @Test
+    void budgetOnAllShowsRoomsOnly() throws Exception {
+        // Every card must meet every filter; a person has no rent, so a budget leaves rooms only.
+        mockMvc.perform(get("/api/v1/discovery")
+                        .header("Authorization", "Bearer " + seekerToken)
+                        .param("lat", String.valueOf(SEEKER_LAT))
+                        .param("lng", String.valueOf(SEEKER_LNG))
+                        .param("radiusKm", "10")
+                        .param("maxRent", "10000"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].hostName").value("Near Host"));
+    }
+
+    @Test
+    void nonSmokingFilterHonoursTheRoomsHouseRules() throws Exception {
+        AppUser ruleHost = completeUser("rule-uid", "Rule Host", nearbyPoint(0.03, 0.03), true);
+        ruleHost.setSmokingHabit(SmokingHabit.REGULAR_SMOKER);
+        ruleHost = userRepository.save(ruleHost);
+        Listing ruled = listingFor(ruleHost, nearbyPoint(0.03, 0.03));
+        ruled.setHouseRules(new java.util.ArrayList<>(java.util.List.of("No Smoking")));
+        listingRepository.save(ruled);
+
+        AppUser smokerHost = completeUser("smoker-uid", "Smoker Host", nearbyPoint(0.025, 0.025), true);
+        smokerHost.setSmokingHabit(SmokingHabit.REGULAR_SMOKER);
+        smokerHost = userRepository.save(smokerHost);
+        listingRepository.save(listingFor(smokerHost, nearbyPoint(0.025, 0.025)));
+
+        mockMvc.perform(get("/api/v1/discovery")
+                        .header("Authorization", "Bearer " + seekerToken)
+                        .param("lat", String.valueOf(SEEKER_LAT))
+                        .param("lng", String.valueOf(SEEKER_LNG))
+                        .param("radiusKm", "10")
+                        .param("listingType", "HAVE_ROOM")
+                        .param("smoking", "NON_SMOKER_ONLY"))
+                .andExpect(status().isOk())
+                // Near Host (non-smoker) and Rule Host (smoker, but a no-smoking room); not Smoker Host.
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].hostName").value("Near Host"))
+                .andExpect(jsonPath("$.content[1].hostName").value("Rule Host"));
+    }
+
+    @Test
     void unauthenticatedRequestIsRejected() throws Exception {
         mockMvc.perform(get("/api/v1/discovery"))
                 .andExpect(status().isUnauthorized());

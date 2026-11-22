@@ -98,14 +98,26 @@ public class DiscoveryService {
         String furnishingStatus = normalizeFurnishingStatus(furnishingStatusParam);
         String sortBy = normalizeSortBy(sortByParam);
 
-        // Room Finder Mode users are "looking for a room", so they belong to the Flatmates segment
-        // (and to "All"); the Rooms segment stays listings-only. Room/furnishing filters also exclude seekers.
-        boolean includeSeekers = (listingType == null || ListingType.NEED_ROOM.name().equals(listingType))
-                && roomType == null && furnishingStatus == null;
+        // Every card returned must meet every filter that is set. Room details (budget, room type,
+        // furnishing) only exist on rooms, so:
+        //  - on the Flatmates segment they are ignored (a stale value must never empty the people feed);
+        //  - anywhere else, setting one means "rooms only", so Room Finder people drop out.
+        boolean peopleSegment = ListingType.NEED_ROOM.name().equals(listingType);
+        if (peopleSegment) {
+            roomType = null;
+            furnishingStatus = null;
+            minRent = null;
+            maxRent = null;
+        }
+        boolean hasRoomDetails = roomType != null || furnishingStatus != null || minRent != null || maxRent != null;
+        boolean includeSeekers = (listingType == null || peopleSegment) && !hasRoomDetails;
 
-        // Mutual gender compatibility: a listing's gender_preference and a seeker candidate's room_finder_gender
-        // must both admit the viewer.
-        String viewerGender = GenderPreference.sqlFilterValue(GenderPreference.fromGender(seeker.getGender()));
+        // Rooms: the listing's gender_preference must admit the gender the viewer asked to see rooms for
+        // ("Show me rooms for" in Room Finder; their own gender until they pick one, ALL = every room).
+        String viewerGender = GenderPreference.sqlFilterValue(
+                GenderPreference.effectiveRoomFinderGender(seeker.getRoomFinderGender(), seeker.getGender()));
+        // People: a Room Finder's own "rooms for" choice must admit the viewer's actual gender.
+        String viewerOwnGender = GenderPreference.sqlFilterValue(GenderPreference.fromGender(seeker.getGender()));
 
         boolean viewerHasLifestyle = matchingEngine.hasCompletedLifestyle(seeker);
         String viewerSmoking = viewerHasLifestyle && seeker.getSmokingHabit() != null ? seeker.getSmokingHabit().name() : null;
@@ -117,13 +129,13 @@ public class DiscoveryService {
         List<DiscoveryCandidateProjection> candidates = listingRepository.findCandidateIdsWithDistance(
                 lat, lng, radiusMeters, currentUserId, gender, minAge, maxAge,
                 smokingOnly, dietOnly, minRent, maxRent, listingType, roomType, furnishingStatus,
-                includeSeekers, viewerGender, sortBy,
+                includeSeekers, viewerGender, viewerOwnGender, sortBy,
                 viewerHasLifestyle, viewerSmoking, viewerCleanliness, viewerSleep, viewerGuest, viewerDiet,
                 safeSize, safePage * safeSize);
         long totalElements = listingRepository.countCandidates(
                 lat, lng, radiusMeters, currentUserId, gender, minAge, maxAge,
                 smokingOnly, dietOnly, minRent, maxRent, listingType, roomType, furnishingStatus,
-                includeSeekers, viewerGender);
+                includeSeekers, viewerGender, viewerOwnGender);
 
         List<DiscoveryCardResponse> content = buildCards(seeker, candidates);
 

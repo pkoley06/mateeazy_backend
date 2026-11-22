@@ -124,8 +124,10 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
                           AND (:gender IS NULL OR u.gender = :gender)
                           AND (:minAge IS NULL OR DATE_PART('year', AGE(u.date_of_birth)) >= :minAge)
                           AND (:maxAge IS NULL OR DATE_PART('year', AGE(u.date_of_birth)) <= :maxAge)
-                          AND (:smokingOnly = FALSE OR u.smoking_habit = 'NON_SMOKER')
-                          AND (:dietOnly = FALSE OR u.dietary_preference IN ('VEGETARIAN', 'VEGAN'))
+                          AND (:smokingOnly = FALSE OR u.smoking_habit = 'NON_SMOKER'
+                               OR EXISTS (SELECT 1 FROM unnest(l.house_rules) r WHERE LOWER(TRIM(r)) = 'no smoking'))
+                          AND (:dietOnly = FALSE OR u.dietary_preference IN ('VEGETARIAN', 'VEGAN')
+                               OR EXISTS (SELECT 1 FROM unnest(l.house_rules) r WHERE LOWER(TRIM(r)) = 'vegetarian only'))
                           AND (:minRent IS NULL OR l.rent_amount >= :minRent)
                           AND (:maxRent IS NULL OR l.rent_amount <= :maxRent)
                           AND (:listingType IS NULL OR l.listing_type = :listingType)
@@ -139,7 +141,7 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
                                ST_Distance(COALESCE(u.target_search_location, u.last_known_location),
                                            ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography) / 1000.0 AS distance_km,
                                NULL::integer AS rent_amount,
-                               u.created_at AS created_at,
+                               COALESCE(u.room_finder_since, u.created_at) AS created_at,
                                CASE
                                  WHEN :viewerHasLifestyle = FALSE THEN 0.0
                                  WHEN u.smoking_habit IS NULL OR u.cleanliness_level IS NULL OR u.sleep_schedule IS NULL OR u.guest_tolerance IS NULL OR u.dietary_preference IS NULL THEN NULL
@@ -171,8 +173,8 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
                           AND ST_DWithin(COALESCE(u.target_search_location, u.last_known_location),
                                          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radiusMeters)
                           AND (:gender IS NULL OR u.gender = :gender)
-                          AND (:viewerGender IS NULL OR u.room_finder_gender IS NULL
-                               OR u.room_finder_gender = 'ALL' OR u.room_finder_gender = :viewerGender)
+                          AND (:viewerOwnGender IS NULL OR u.room_finder_gender IS NULL
+                               OR u.room_finder_gender = 'ALL' OR u.room_finder_gender = :viewerOwnGender)
                           AND (:minAge IS NULL OR DATE_PART('year', AGE(u.date_of_birth)) >= :minAge)
                           AND (:maxAge IS NULL OR DATE_PART('year', AGE(u.date_of_birth)) <= :maxAge)
                           AND (:smokingOnly = FALSE OR u.smoking_habit = 'NON_SMOKER')
@@ -207,6 +209,7 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
             @Param("furnishingStatus") String furnishingStatus,
             @Param("includeSeekers") boolean includeSeekers,
             @Param("viewerGender") String viewerGender,
+            @Param("viewerOwnGender") String viewerOwnGender,
             @Param("sortBy") String sortBy,
             @Param("viewerHasLifestyle") boolean viewerHasLifestyle,
             @Param("viewerSmoking") String viewerSmoking,
@@ -238,8 +241,10 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
                           AND (:gender IS NULL OR u.gender = :gender)
                           AND (:minAge IS NULL OR DATE_PART('year', AGE(u.date_of_birth)) >= :minAge)
                           AND (:maxAge IS NULL OR DATE_PART('year', AGE(u.date_of_birth)) <= :maxAge)
-                          AND (:smokingOnly = FALSE OR u.smoking_habit = 'NON_SMOKER')
-                          AND (:dietOnly = FALSE OR u.dietary_preference IN ('VEGETARIAN', 'VEGAN'))
+                          AND (:smokingOnly = FALSE OR u.smoking_habit = 'NON_SMOKER'
+                               OR EXISTS (SELECT 1 FROM unnest(l.house_rules) r WHERE LOWER(TRIM(r)) = 'no smoking'))
+                          AND (:dietOnly = FALSE OR u.dietary_preference IN ('VEGETARIAN', 'VEGAN')
+                               OR EXISTS (SELECT 1 FROM unnest(l.house_rules) r WHERE LOWER(TRIM(r)) = 'vegetarian only'))
                           AND (:minRent IS NULL OR l.rent_amount >= :minRent)
                           AND (:maxRent IS NULL OR l.rent_amount <= :maxRent)
                           AND (:listingType IS NULL OR l.listing_type = :listingType)
@@ -266,8 +271,8 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
                           AND ST_DWithin(COALESCE(u.target_search_location, u.last_known_location),
                                          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radiusMeters)
                           AND (:gender IS NULL OR u.gender = :gender)
-                          AND (:viewerGender IS NULL OR u.room_finder_gender IS NULL
-                               OR u.room_finder_gender = 'ALL' OR u.room_finder_gender = :viewerGender)
+                          AND (:viewerOwnGender IS NULL OR u.room_finder_gender IS NULL
+                               OR u.room_finder_gender = 'ALL' OR u.room_finder_gender = :viewerOwnGender)
                           AND (:minAge IS NULL OR DATE_PART('year', AGE(u.date_of_birth)) >= :minAge)
                           AND (:maxAge IS NULL OR DATE_PART('year', AGE(u.date_of_birth)) <= :maxAge)
                           AND (:smokingOnly = FALSE OR u.smoking_habit = 'NON_SMOKER')
@@ -291,7 +296,8 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
             @Param("roomType") String roomType,
             @Param("furnishingStatus") String furnishingStatus,
             @Param("includeSeekers") boolean includeSeekers,
-            @Param("viewerGender") String viewerGender);
+            @Param("viewerGender") String viewerGender,
+            @Param("viewerOwnGender") String viewerOwnGender);
 
     /** Loads full entities (with the host fetched eagerly) for a page of candidate IDs. */
     @Query("SELECT l FROM Listing l JOIN FETCH l.hostUser WHERE l.id IN :ids")
