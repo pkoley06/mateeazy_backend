@@ -18,6 +18,10 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
 
     Page<Message> findByConversationIdOrderBySentAtDesc(UUID conversationId, Pageable pageable);
 
+    /** Messages sent after a participant deleted the chat for themselves. */
+    Page<Message> findByConversationIdAndSentAtAfterOrderBySentAtDesc(
+            UUID conversationId, java.time.OffsetDateTime after, Pageable pageable);
+
     /** For mark-read: the reader's unread/undelivered messages in this conversation. */
     List<Message> findByConversationIdAndRecipientIdAndStatusNot(UUID conversationId, UUID recipientId, MessageStatus status);
 

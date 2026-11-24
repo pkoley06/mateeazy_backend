@@ -58,6 +58,29 @@ public class Conversation {
     @Column(name = "initiator_user_id")
     private UUID initiatorUserId;
 
+    /**
+     * When each side last deleted the chat for themselves (V34). Messages sent up to then are
+     * hidden from that side only; null = never deleted.
+     */
+    @Column(name = "cleared_at_user_one")
+    private OffsetDateTime clearedAtUserOne;
+
+    @Column(name = "cleared_at_user_two")
+    private OffsetDateTime clearedAtUserTwo;
+
+    /** When [userId] last deleted this chat for themselves, or null. */
+    public OffsetDateTime clearedAtFor(UUID userId) {
+        return userOne.getId().equals(userId) ? clearedAtUserOne : clearedAtUserTwo;
+    }
+
+    public void clearFor(UUID userId, OffsetDateTime at) {
+        if (userOne.getId().equals(userId)) {
+            clearedAtUserOne = at;
+        } else {
+            clearedAtUserTwo = at;
+        }
+    }
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

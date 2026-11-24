@@ -33,11 +33,34 @@ public class ChatController {
         this.mediaQuotaService = mediaQuotaService;
     }
 
+    /**
+     * {@code hideEmpty=true} (current app) leaves out chats nobody has written in yet. Older
+     * app versions omit it: their thread screen finds a just-created chat in this list.
+     */
     @GetMapping("/conversations")
     public ResponseEntity<List<ConversationSummaryResponse>> listConversations(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @RequestParam(defaultValue = "false") boolean hideEmpty
+    ) {
+        return ResponseEntity.ok(chatService.listConversations(principal.getUserId(), hideEmpty));
+    }
+
+    @GetMapping("/conversations/{conversationId}")
+    public ResponseEntity<ConversationSummaryResponse> getConversation(
+            @PathVariable UUID conversationId,
             @AuthenticationPrincipal AuthenticatedUserPrincipal principal
     ) {
-        return ResponseEntity.ok(chatService.listConversations(principal.getUserId()));
+        return ResponseEntity.ok(chatService.getConversation(conversationId, principal.getUserId()));
+    }
+
+    /** Deletes the chat for the caller only; the other participant keeps it. */
+    @DeleteMapping("/conversations/{conversationId}")
+    public ResponseEntity<Void> deleteConversation(
+            @PathVariable UUID conversationId,
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal
+    ) {
+        chatService.deleteConversationForUser(conversationId, principal.getUserId());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/conversations")

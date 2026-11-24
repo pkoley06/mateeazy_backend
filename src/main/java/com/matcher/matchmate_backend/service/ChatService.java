@@ -159,18 +159,66 @@ public class ChatService {
         return toSummary(saved, userId);
     }
 
+    /** Older app versions: empty conversations stay listed (their thread screen looks itself up in the list). */
     @Transactional
     public List<ConversationSummaryResponse> listConversations(UUID userId) {
+        return listConversations(userId, false);
+    }
+
+    /**
+     * The viewer's chats, newest activity first. A chat the viewer deleted is left out until a
+     * newer message arrives. With [hideEmpty], so is a chat nobody has written in yet: tapping
+     * "Message" creates the conversation, but it only belongs in the list once a message is sent.
+     */
+    @Transactional
+    public List<ConversationSummaryResponse> listConversations(UUID userId, boolean hideEmpty) {
         // Conversations with someone the viewer blocked, or who blocked the viewer, are hidden
         // (they come back on their own if the block is lifted).
         Set<UUID> hidden = new HashSet<>(blockRepository.findBlockedUserIdsByBlockerId(userId));
         hidden.addAll(blockRepository.findBlockerIdsByBlockedId(userId));
 
-        List<Conversation> conversations = conversationRepository.findAllInvolvingUser(userId);
-        return conversations.stream()
-                .filter(c -> !hidden.contains(otherParticipantId(c, userId)))
-                .map(c -> toSummary(c, userId))
-                .toList();
+        List<ConversationSummaryResponse> result = new ArrayList<>();
+        for (Conversation c : conversationRepository.findAllInvolvingUser(userId)) {
+            if (hidden.contains(otherParticipantId(c, userId))) continue;
+            ConversationSummaryResponse summary = toSummary(c, userId);
+            // lastMessage only counts messages the viewer can still see (see toSummary): none
+            // means the viewer deleted the chat and nothing came since, or nobody wrote yet.
+            boolean nothingToShow = summary.getLastMessage() == null;
+            if (nothingToShow && (hideEmpty || c.clearedAtFor(userId) != null)) continue;
+            result.add(summary);
+        }
+        return result;
+    }
+
+    /** One conversation, for opening its thread directly (it may not be in the list yet). */
+    @Transactional
+    public ConversationSummaryResponse getConversation(UUID conversationId, UUID userId) {
+        Conversation conversation = loadConversation(conversationId);
+        requireParticipant(conversation, userId);
+        return toSummary(conversation, userId);
+    }
+
+    /**
+     * "Delete chat" for [userId] only: the chat leaves their list and its history is hidden from
+     * them, while the other participant keeps everything. A later message brings it back for
+     * them with just the new messages.
+     */
+    @Transactional
+    public void deleteConversationForUser(UUID conversationId, UUID userId) {
+        Conversation conversation = loadConversation(conversationId);
+        requireParticipant(conversation, userId);
+        conversation.clearFor(userId, OffsetDateTime.now());
+        zeroUnread(conversation, userId);
+        conversationRepository.save(conversation);
+    }
+
+    /** Newest-first messages [viewerId] can see: everything after they last deleted the chat. */
+    private Page<Message> visibleMessages(Conversation conversation, UUID viewerId, Pageable pageable) {
+        OffsetDateTime clearedAt = conversation.clearedAtFor(viewerId);
+        return clearedAt == null
+                ? messageRepository.findByConversationIdOrderBySentAtDesc(conversation.getId(), pageable)
+                : messageRepository.findByConversationIdAndSentAtAfterOrderBySentAtDesc(
+                        conversation.getId(), clearedAt, pageable);
     }
 
     // ------------------------------------------------------------------ messages
@@ -179,7 +227,7 @@ public class ChatService {
     public PageResponse<MessageResponse> getMessages(UUID conversationId, UUID requesterId, Pageable pageable) {
         Conversation conversation = loadConversation(conversationId);
         requireParticipant(conversation, requesterId);
-        Page<Message> page = messageRepository.findByConversationIdOrderBySentAtDesc(conversationId, pageable);
+        Page<Message> page = visibleMessages(conversation, requesterId, pageable);
         List<UUID> messageIds = page.getContent().stream().map(Message::getId).toList();
         Map<UUID, List<MessageReaction>> reactionsByMessageId = new HashMap<>();
         if (!messageIds.isEmpty()) {
@@ -630,8 +678,7 @@ public class ChatService {
         }
 
         LastMessageSummary lastMessageSummary = null;
-        Page<Message> lastMessagePage = messageRepository.findByConversationIdOrderBySentAtDesc(
-                conversation.getId(), PageRequest.of(0, 1));
+        Page<Message> lastMessagePage = visibleMessages(conversation, viewerUserId, PageRequest.of(0, 1));
         if (!lastMessagePage.isEmpty()) {
             Message last = lastMessagePage.getContent().get(0);
             lastMessageSummary = LastMessageSummary.builder()
