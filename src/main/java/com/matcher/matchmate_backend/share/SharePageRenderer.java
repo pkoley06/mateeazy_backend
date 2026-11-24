@@ -36,9 +36,10 @@ public final class SharePageRenderer {
 
     public String render(SharePreview preview) {
         String link = linkFor(preview.kind(), preview.id());
-        String image = preview.imageUrl() != null && !preview.imageUrl().isBlank()
-                ? preview.imageUrl()
-                : siteBaseUrl + "/assets/img/og-image.jpg";
+        boolean hasPhoto = preview.imageUrl() != null && !preview.imageUrl().isBlank();
+        String image = hasPhoto ? preview.imageUrl() : siteBaseUrl + "/assets/img/og-image.jpg";
+        // The site banner is 1200x630 with the logo at its left edge: show it whole.
+        String coverClass = hasPhoto ? "cover" : "cover wide";
         String openInApp = intentUrl(preview.kind(), preview.id());
         String heading = preview.title();
         String cta = preview.kind() == SharePreview.Kind.ROOM ? "View this room in MateEazy" : "View this post in MateEazy";
@@ -57,13 +58,13 @@ public final class SharePageRenderer {
                   <link rel="canonical" href="%s">
                 """.formatted(e(heading), e(preview.summary()), e(link), e(image), e(preview.summary()), e(link)),
                 """
-                  <img class="cover" src="%s" alt="">
+                  <img class="%s" src="%s" alt="">
                   <h1>%s</h1>
                   <p class="summary">%s</p>
                   <a class="primary" id="open" href="%s" data-intent="%s">%s</a>
                   <a class="secondary" href="%s">Get MateEazy on Google Play</a>
                   <p class="note">Free on Android. Sign in to see the full details and message the host.</p>
-                """.formatted(e(image), e(heading), e(preview.summary()), e(PLAY_URL), e(openInApp), e(cta), e(PLAY_URL)));
+                """.formatted(coverClass, e(image), e(heading), e(preview.summary()), e(PLAY_URL), e(openInApp), e(cta), e(PLAY_URL)));
     }
 
     /** Shown when the room / post was removed, hidden, or never existed. */
@@ -112,6 +113,7 @@ public final class SharePageRenderer {
                     body{margin:0;min-height:100vh;display:grid;place-items:center;background:#2B1B3D;color:#FFF8F0;font-family:Poppins,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px;box-sizing:border-box;text-align:center}
                     main{width:100%%;max-width:420px}
                     .cover{width:100%%;aspect-ratio:4/3;object-fit:cover;border-radius:24px;display:block;margin:0 0 20px;background:#3A2850}
+                    .cover.wide{aspect-ratio:1200/630}
                     .logo{width:96px;height:96px;margin:0 auto 20px;display:block}
                     h1{font-size:24px;line-height:1.25;margin:0 0 8px}
                     .summary{color:#C1B0CC;margin:0 0 24px;font-size:16px}

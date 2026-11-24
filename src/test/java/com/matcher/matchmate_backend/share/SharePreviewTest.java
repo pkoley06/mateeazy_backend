@@ -106,7 +106,11 @@ class SharePreviewTest {
     void roomWithoutPhotosUsesTheSiteImage() {
         String html = renderer.render(SharePreviewService.toPreview(room().photoUrls(List.of()).build()));
 
-        assertThat(html).contains("content=\"https://mateeazy.in/assets/img/og-image.jpg\"");
+        assertThat(html).contains("content=\"https://mateeazy.in/assets/img/og-image.jpg\"")
+                // Wide banner shown whole, not cropped to the photo frame.
+                .contains("<img class=\"cover wide\" src=\"https://mateeazy.in/assets/img/og-image.jpg\"");
+        assertThat(renderer.render(SharePreviewService.toPreview(room().build())))
+                .contains("<img class=\"cover\" src=\"https://cdn.example/a.jpg\"");
     }
 
     @Test
