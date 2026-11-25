@@ -24,6 +24,17 @@ public class ReportResponse {
     private String reportedUserName;
     private UUID reportedListingId;
     private String reportedListingTitle;
+    private UUID reportedPostId;
+    private String reportedPostTitle;
+    private UUID reportedCommentId;
+    private UUID reportedStatusId;
+    // The post a POST or COMMENT report belongs to (links it to the post page).
+    private UUID contextPostId;
+    // Snapshot of the reported text and photo, kept after the content is removed.
+    private String contentPreview;
+    private String contentMediaUrl;
+    // False once the reported post, comment or status no longer exists.
+    private Boolean contentAvailable;
     private ReportType reportType;
     private ReportReason reason;
     private String details;

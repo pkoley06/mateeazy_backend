@@ -17,12 +17,18 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ReportCreateRequest {
 
-    @NotNull(message = "Report type is required (USER or LISTING)")
+    @NotNull(message = "Report type is required (USER, LISTING, POST, COMMENT or STATUS)")
     private ReportType reportType;
 
     private UUID reportedUserId;
 
     private UUID reportedListingId;
+
+    private UUID reportedPostId;
+
+    private UUID reportedCommentId;
+
+    private UUID reportedStatusId;
 
     @NotNull(message = "Reason is required")
     private ReportReason reason;

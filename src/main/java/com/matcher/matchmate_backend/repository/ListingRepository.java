@@ -302,4 +302,6 @@ public interface ListingRepository extends JpaRepository<Listing, UUID> {
     /** Loads full entities (with the host fetched eagerly) for a page of candidate IDs. */
     @Query("SELECT l FROM Listing l JOIN FETCH l.hostUser WHERE l.id IN :ids")
     List<Listing> findAllWithHostByIdIn(@Param("ids") List<UUID> ids);
+
+    long countByHostUserId(UUID hostUserId);
 }

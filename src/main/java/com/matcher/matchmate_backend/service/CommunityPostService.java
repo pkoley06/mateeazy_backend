@@ -136,6 +136,11 @@ public class CommunityPostService {
     public CommunityPostResponse getPostById(UUID postId, UUID currentUserId) {
         CommunityPost post = communityPostRepository.findById(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Community post not found: " + postId));
+        // A post an admin archived is gone for everyone but its author (shared links included).
+        boolean isAuthor = currentUserId != null && currentUserId.equals(post.getAuthor().getId());
+        if (post.getStatus() != CommunityPostStatus.ACTIVE && !isAuthor) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Community post not found: " + postId);
+        }
 
         boolean isLiked = currentUserId != null && communityPostLikeRepository.existsByPostIdAndUserId(postId, currentUserId);
         return toPostResponse(post, isLiked, null);

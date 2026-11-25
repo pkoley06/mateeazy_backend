@@ -18,5 +18,17 @@ public class AdminDashboardStatsResponse {
     private long totalListings;
     private long availableListings;
     private List<AdminUserSummaryResponse> recentUsers;
+
+    // Added for the Overview page.
+    private long newUsersThisWeek;
+    private long communityPosts;
+    private long activeCommunityPosts;
+    private long liveStatuses;
+    private long liveStatusAuthors;
+    private long pendingReports;
+    private long newReportsToday;
+    /** Open reports, newest first (at most 6). */
+    private List<ReportResponse> pendingReportsPreview;
+    private List<AdminCommunityPostResponse> recentPosts;
     private List<AdminListingSummaryResponse> recentListings;
 }

@@ -36,6 +36,30 @@ public class Report {
     @JoinColumn(name = "reported_listing_id")
     private Listing reportedListing;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reported_post_id")
+    private CommunityPost reportedPost;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reported_comment_id")
+    private CommunityComment reportedComment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reported_status_id")
+    private UserStatus reportedStatus;
+
+    /** The post a POST or COMMENT report belongs to. Kept after the content is deleted. */
+    @Column(name = "context_post_id")
+    private UUID contextPostId;
+
+    /** What was reported, as it was at the time (post title + text, comment, status caption). */
+    @Column(name = "content_preview", columnDefinition = "TEXT")
+    private String contentPreview;
+
+    /** First photo of a reported post, or a status's photo, kept after the content goes. */
+    @Column(name = "content_media_url", length = 1024)
+    private String contentMediaUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "report_type", nullable = false, length = 20)
     private ReportType reportType;

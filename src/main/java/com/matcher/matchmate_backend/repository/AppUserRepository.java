@@ -89,4 +89,6 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     @Modifying
     @Query("UPDATE AppUser u SET u.isOnline = false WHERE u.isOnline = true")
     void resetAllOnlineStatus();
+
+    long countByCreatedAtAfter(OffsetDateTime after);
 }
