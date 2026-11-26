@@ -23,10 +23,14 @@ public class MessageResponse {
     private UUID recipientId;
     /** Empty for an IMAGE / GIF message. */
     private String content;
-    /** TEXT / IMAGE / GIF; older clients that ignore it still get {@code content}. */
+    /** TEXT / IMAGE / GIF / AUDIO; older clients that ignore it still get {@code content}. */
     private MessageType messageType;
-    /** 1-5 photo URLs for IMAGE, exactly one URL for GIF, empty for TEXT. */
+    /** 1-5 photo URLs for IMAGE, exactly one URL for GIF or AUDIO, empty for TEXT. */
     private List<String> attachmentUrls;
+    /** AUDIO only: clip length in milliseconds. */
+    private Integer durationMs;
+    /** AUDIO only: loudness bars, one digit 0-9 each. */
+    private String waveform;
     private MessageStatus status;
     private UUID replyToMessageId;
     private String replyToContent;

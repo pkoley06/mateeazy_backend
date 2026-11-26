@@ -20,5 +20,9 @@ public class ChatSocketSendRequest {
     /** Defaults to TEXT when omitted. */
     private MessageType messageType;
     private List<String> attachmentUrls;
+    /** AUDIO only: clip length in milliseconds. */
+    private Integer durationMs;
+    /** AUDIO only: loudness bars, one digit 0-9 each (at most 64). */
+    private String waveform;
     private UUID replyToMessageId;
 }

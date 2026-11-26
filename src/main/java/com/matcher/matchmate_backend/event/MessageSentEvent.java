@@ -19,6 +19,8 @@ public record MessageSentEvent(
         String content,
         MessageType messageType,
         List<String> attachmentUrls,
+        Integer durationMs,
+        String waveform,
         OffsetDateTime sentAt,
         MessageStatus status,
         UUID replyToMessageId,
@@ -38,6 +40,7 @@ public record MessageSentEvent(
             return stripped.length() == content.length() ? content : "Replied to a status: " + stripped;
         }
         if (type == MessageType.GIF) return "GIF";
+        if (type == MessageType.AUDIO) return "🎤 Voice message";
         return attachmentCount > 1 ? "📷 " + attachmentCount + " photos" : "📷 Photo";
     }
 }

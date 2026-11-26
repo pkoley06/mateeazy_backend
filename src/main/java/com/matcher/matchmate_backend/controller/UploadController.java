@@ -46,6 +46,9 @@ public class UploadController {
     @Value("${app.storage.max-chat-gif-bytes:5242880}")
     private long maxChatGifBytes;
 
+    @Value("${app.storage.max-chat-audio-bytes:8388608}")
+    private long maxChatAudioBytes;
+
     private final ChatMediaQuotaService mediaQuotaService;
 
     public UploadController(
@@ -151,6 +154,37 @@ public class UploadController {
         String key = "chat/" + principal.getUserId() + "/" + UUID.randomUUID() + ".gif";
         StorageService.StoredObject stored = storageService.upload(key, bytes, "image/gif");
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("url", stored.url()));
+    }
+
+    /**
+     * A voice message clip: AAC in an MP4/M4A container, as the app records it, stored as-is.
+     * Five minutes at the app's bitrate is well under the cap.
+     */
+    @PostMapping("/chat-audio")
+    public ResponseEntity<Map<String, String>> uploadChatAudio(
+            @AuthenticationPrincipal AuthenticatedUserPrincipal principal,
+            @RequestParam("file") MultipartFile file
+    ) {
+        byte[] bytes = readBytes(file);
+        if (bytes.length == 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No file provided");
+        }
+        if (bytes.length > maxChatAudioBytes) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
+                    "Voice messages can be at most " + (maxChatAudioBytes / (1024 * 1024)) + " MB");
+        }
+        if (!isMp4(bytes)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only M4A voice clips are accepted here");
+        }
+        String key = "chat/" + principal.getUserId() + "/" + UUID.randomUUID() + ".m4a";
+        StorageService.StoredObject stored = storageService.upload(key, bytes, "audio/mp4");
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("url", stored.url()));
+    }
+
+    /** Magic-number check for an MP4 family file (M4A): an "ftyp" box at offset 4. */
+    public static boolean isMp4(byte[] bytes) {
+        return bytes.length >= 12
+                && bytes[4] == 'f' && bytes[5] == 't' && bytes[6] == 'y' && bytes[7] == 'p';
     }
 
     /** Magic-number check: "GIF87a" / "GIF89a". */

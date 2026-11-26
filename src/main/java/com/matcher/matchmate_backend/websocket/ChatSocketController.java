@@ -44,7 +44,8 @@ public class ChatSocketController {
     public void sendMessage(@Payload ChatSocketSendRequest request, Principal principal) {
         UUID userId = requireUserId(principal);
         chatService.sendMessage(request.getConversationId(), userId, request.getContent(),
-                request.getMessageType(), request.getAttachmentUrls(), request.getReplyToMessageId());
+                request.getMessageType(), request.getAttachmentUrls(), request.getReplyToMessageId(),
+                request.getDurationMs(), request.getWaveform());
     }
 
     @MessageMapping("/chat.read")

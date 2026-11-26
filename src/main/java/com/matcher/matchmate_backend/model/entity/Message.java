@@ -50,6 +50,14 @@ public class Message {
     @Builder.Default
     private List<String> attachmentUrls = new ArrayList<>();
 
+    /** Length of an AUDIO message's clip. */
+    @Column(name = "media_duration_ms")
+    private Integer mediaDurationMs;
+
+    /** An AUDIO message's loudness bars: one digit 0-9 per bar, up to 64 bars. */
+    @Column(name = "waveform", length = 64)
+    private String waveform;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default

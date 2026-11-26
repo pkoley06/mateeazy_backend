@@ -8,7 +8,9 @@ package com.matcher.matchmate_backend.model.enums.chat;
 public enum MessageType {
     TEXT,
     IMAGE,
-    GIF;
+    GIF,
+    /** A voice message: one recorded clip (AAC in an MP4/M4A container). */
+    AUDIO;
 
     public boolean isMedia() {
         return this != TEXT;

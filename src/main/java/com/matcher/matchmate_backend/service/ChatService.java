@@ -251,16 +251,29 @@ public class ChatService {
         return sendMessage(conversationId, senderId, content, type, attachmentUrls, null);
     }
 
-    /**
-     * Sends a TEXT, IMAGE (1-5 photos, counted against the daily quota) or GIF message, with optional reply context.
-     */
     @Transactional
     public MessageResponse sendMessage(
             UUID conversationId, UUID senderId, String content, MessageType type, List<String> attachmentUrls, UUID replyToMessageId
     ) {
+        return sendMessage(conversationId, senderId, content, type, attachmentUrls, replyToMessageId, null, null);
+    }
+
+    /**
+     * Sends a TEXT, IMAGE (1-5 photos, counted against the daily quota), GIF or AUDIO (one voice
+     * clip with its length and loudness bars) message, with optional reply context.
+     */
+    @Transactional
+    public MessageResponse sendMessage(
+            UUID conversationId, UUID senderId, String content, MessageType type, List<String> attachmentUrls,
+            UUID replyToMessageId, Integer durationMs, String waveform
+    ) {
         MessageType messageType = type == null ? MessageType.TEXT : type;
         List<String> attachments = validateAttachments(messageType, attachmentUrls);
-        String trimmed = messageType.isMedia() ? validateCaption(content) : validateContent(content);
+        String trimmed = messageType == MessageType.AUDIO
+                ? ""
+                : messageType.isMedia() ? validateCaption(content) : validateContent(content);
+        Integer audioDurationMs = messageType == MessageType.AUDIO ? validateAudioDuration(durationMs) : null;
+        String audioWaveform = messageType == MessageType.AUDIO ? cleanWaveform(waveform) : null;
         Conversation conversation = loadConversation(conversationId);
         UUID recipientId = otherParticipantId(conversation, senderId);
         requireNotBlocked(senderId, recipientId);
@@ -309,6 +322,8 @@ public class ChatService {
                     replyToContent = replyTo.getContent().isBlank() ? "📷 Photo" : "📷 " + replyTo.getContent();
                 } else if (replyTo.getMessageType() == MessageType.GIF) {
                     replyToContent = "GIF";
+                } else if (replyTo.getMessageType() == MessageType.AUDIO) {
+                    replyToContent = "🎤 Voice message";
                 } else {
                     replyToContent = replyTo.getContent().length() > 150
                             ? replyTo.getContent().substring(0, 150) + "..."
@@ -327,6 +342,8 @@ public class ChatService {
                 .content(trimmed)
                 .messageType(messageType)
                 .attachmentUrls(new ArrayList<>(attachments))
+                .mediaDurationMs(audioDurationMs)
+                .waveform(audioWaveform)
                 .status(recipientOnline ? MessageStatus.DELIVERED : MessageStatus.SENT)
                 .deliveredAt(recipientOnline ? now : null)
                 .replyToMessageId(replyToMessageId)
@@ -343,7 +360,7 @@ public class ChatService {
 
         eventPublisher.publishEvent(new MessageSentEvent(
                 conversation.getId(), saved.getId(), senderId, recipientId,
-                trimmed, messageType, List.copyOf(attachments), saved.getSentAt(), saved.getStatus(),
+                trimmed, messageType, List.copyOf(attachments), audioDurationMs, audioWaveform, saved.getSentAt(), saved.getStatus(),
                 replyToMessageId, replyToContent, replyToSenderName));
 
         return toMessageResponse(saved, List.of());
@@ -358,6 +375,9 @@ public class ChatService {
         }
         if (Boolean.TRUE.equals(message.getIsDeleted())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Deleted messages cannot be edited");
+        }
+        if (message.getMessageType() == MessageType.AUDIO) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voice messages can't be edited");
         }
         String trimmed = validateContent(newContent);
         message.setContent(trimmed);
@@ -454,6 +474,8 @@ public class ChatService {
                 previewContent = "📷 Photo";
             } else if ((previewContent == null || previewContent.isBlank()) && message.getMessageType() == MessageType.GIF) {
                 previewContent = "GIF";
+            } else if (message.getMessageType() == MessageType.AUDIO) {
+                previewContent = "🎤 Voice message";
             }
             eventPublisher.publishEvent(new MessageReactedEvent(
                     message.getConversation().getId(), message.getId(), userId,
@@ -496,8 +518,34 @@ public class ChatService {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That GIF link isn't allowed");
                 }
             }
+            case AUDIO -> {
+                if (cleaned.size() != 1) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A voice message carries exactly one clip");
+                }
+                if (!storageService.isManagedUrl(cleaned.get(0))) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voice messages must be uploaded through the app");
+                }
+            }
         }
         return cleaned;
+    }
+
+    /** Longest voice message accepted, in milliseconds (the app stops recording at 5 minutes). */
+    public static final int MAX_AUDIO_DURATION_MS = 5 * 60 * 1000 + 5_000;
+
+    private static Integer validateAudioDuration(Integer durationMs) {
+        if (durationMs == null || durationMs < 500 || durationMs > MAX_AUDIO_DURATION_MS) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A voice message is 1 second to 5 minutes long");
+        }
+        return durationMs;
+    }
+
+    /** Keeps only the digits of a waveform, at most 64 bars; null when nothing is left. */
+    private static String cleanWaveform(String waveform) {
+        if (waveform == null) return null;
+        String digits = waveform.replaceAll("[^0-9]", "");
+        if (digits.isEmpty()) return null;
+        return digits.length() > 64 ? digits.substring(0, 64) : digits;
     }
 
     @Transactional
@@ -738,6 +786,8 @@ public class ChatService {
                 .content(m.getContent())
                 .messageType(m.getMessageType() == null ? MessageType.TEXT : m.getMessageType())
                 .attachmentUrls(m.getAttachmentUrls() == null ? List.of() : List.copyOf(m.getAttachmentUrls()))
+                .durationMs(m.getMediaDurationMs())
+                .waveform(m.getWaveform())
                 .status(m.getStatus())
                 .replyToMessageId(m.getReplyToMessageId())
                 .replyToContent(m.getReplyToContent())

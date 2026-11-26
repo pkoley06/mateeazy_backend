@@ -108,7 +108,8 @@ public class ChatController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(chatService.sendMessage(conversationId, principal.getUserId(), request.getContent(),
-                        request.getMessageType(), request.getAttachmentUrls(), request.getReplyToMessageId()));
+                        request.getMessageType(), request.getAttachmentUrls(), request.getReplyToMessageId(),
+                        request.getDurationMs(), request.getWaveform()));
     }
 
     @PatchMapping("/messages/{messageId}")

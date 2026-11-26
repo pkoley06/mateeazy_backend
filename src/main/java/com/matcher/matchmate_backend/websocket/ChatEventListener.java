@@ -56,6 +56,8 @@ public class ChatEventListener {
                 .content(event.content())
                 .messageType(event.messageType())
                 .attachmentUrls(event.attachmentUrls())
+                .durationMs(event.durationMs())
+                .waveform(event.waveform())
                 .status(event.status())
                 .replyToMessageId(event.replyToMessageId())
                 .replyToContent(event.replyToContent())

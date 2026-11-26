@@ -30,6 +30,10 @@ public class SendMessageRequest {
 
     @Size(max = 5, message = "At most 5 attachments per message")
     private List<String> attachmentUrls;
+    /** AUDIO only: clip length in milliseconds. */
+    private Integer durationMs;
+    /** AUDIO only: loudness bars, one digit 0-9 each (at most 64). */
+    private String waveform;
 
     private java.util.UUID replyToMessageId;
 }
