@@ -1,5 +1,6 @@
 package com.matcher.matchmate_backend.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,6 +21,10 @@ public class PageResponse<T> {
     private int size;
     private long totalElements;
     private int totalPages;
+    // Explicit @JsonProperty: Jackson would otherwise strip the "is" prefix from the
+    // isLast() getter and send "last", and the app (which reads "isLast") would think
+    // every first page is the only one, e.g. a chat would never load older messages.
+    @JsonProperty("isLast")
     private boolean isLast;
 
     public static <S, T> PageResponse<T> of(Page<S> page, Function<S, T> mapper) {
